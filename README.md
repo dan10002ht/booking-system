@@ -362,3 +362,58 @@ The **Check-in Service** is responsible for validating tickets and processing ch
 ### Check-in Flow (with language)
 
 1. **checkin-service (Go)** → 2. **ticket-service (Java)** → 3. **analytics-service (Java)** → 4. **notification-service (Go)**
+
+## 🏗️ Infrastructure Setup (Local Development)
+
+### 1. Start Core Infrastructure
+
+```bash
+cd deploy
+# Start all core infrastructure services
+# (PostgreSQL, Redis, Kafka, Prometheus, Grafana, Elasticsearch, Kibana)
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+### 2. Included Services
+
+| Service       | Port(s) | Description                              |
+| ------------- | ------- | ---------------------------------------- |
+| PostgreSQL    | 5432    | Main relational database                 |
+| Redis         | 6379    | Cache, pub/sub, queue, rate limiting     |
+| Zookeeper     | 2181    | Kafka coordination                       |
+| Kafka         | 9092    | Event/message queue for async processing |
+| Prometheus    | 9090    | Metrics collection                       |
+| Grafana       | 3000    | Metrics dashboard/visualization          |
+| Elasticsearch | 9200    | Centralized log storage                  |
+| Kibana        | 5601    | Log visualization and search             |
+
+### 3. Health Check & Management
+
+- **Check running containers:**
+  ```bash
+  docker ps
+  ```
+- **Check logs:**
+  ```bash
+  docker-compose -f docker-compose.dev.yml logs <service>
+  ```
+- **Stop all infrastructure:**
+  ```bash
+  docker-compose -f docker-compose.dev.yml down
+  ```
+
+### 4. Service Roles
+
+- **PostgreSQL**: Primary database for all business data (users, bookings, payments, etc.)
+- **Redis**: Distributed cache, pub/sub for real-time, queue for async jobs, rate limiting
+- **Kafka**: High-throughput event streaming for background jobs, analytics, notifications
+- **Prometheus**: Collects metrics from all services for monitoring
+- **Grafana**: Visualizes metrics and dashboards
+- **Elasticsearch**: Stores and indexes logs from all services
+- **Kibana**: UI for searching and analyzing logs
+
+### 5. Next Steps
+
+- Generate and run your microservices (see below)
+- Each service should connect to the above infrastructure using the provided ports
+- For production, use Kubernetes manifests in `deploy/k8s/`
