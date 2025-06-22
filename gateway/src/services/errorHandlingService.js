@@ -1,4 +1,4 @@
-import errorHandler from '../middleware/errorHandler.js';
+import errorHandler from '../middlewares/errorHandler.js';
 import config from '../config/index.js';
 
 /**

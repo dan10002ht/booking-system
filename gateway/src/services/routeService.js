@@ -1,5 +1,5 @@
 import swaggerUi from 'swagger-ui-express';
-import authMiddleware from '../middleware/auth.js';
+import authMiddleware from '../middlewares/auth.js';
 
 // Import routes
 import authRoutes from '../routes/auth.js';

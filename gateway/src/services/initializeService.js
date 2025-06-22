@@ -11,7 +11,7 @@ import {
   loggingMiddleware,
   rateLimitMiddleware,
   errorHandlerMiddleware
-} from '../middleware/index.js';
+} from '../middlewares/index.js';
 
 // Import services
 import { initializeSwagger } from './swaggerService.js';
