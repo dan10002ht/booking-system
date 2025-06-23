@@ -185,7 +185,7 @@ restore/
 
 # Generated files
 generated/
-proto/generated/
+protos/generated/
 
 # Lock files (keep yarn.lock for consistency)
 # yarn.lock is kept for dependency consistency 

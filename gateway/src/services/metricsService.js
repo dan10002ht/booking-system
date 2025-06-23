@@ -9,7 +9,7 @@ export const initializeMetrics = () => {
     includeMethod: true,
     includePath: true,
     promClient: {
-      collectDefaultMetrics: true
-    }
+      collectDefaultMetrics: {},
+    },
   });
-}; 
+};

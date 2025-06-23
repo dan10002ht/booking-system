@@ -110,7 +110,7 @@ out/
 test-results/
 
 # Generated gRPC files
-src/proto/generated/
+src/protos/generated/
 
 # Docker
 .dockerignore

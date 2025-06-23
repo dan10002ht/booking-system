@@ -18,6 +18,5 @@ server.addService(userProto.UserService.service, {
 
 const PORT = process.env.GRPC_PORT || '9090';
 server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), () => {
-  server.start();
   console.log(`gRPC server running at 0.0.0.0:${PORT}`);
 });

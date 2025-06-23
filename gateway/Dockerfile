@@ -3,8 +3,8 @@ FROM node:18-alpine
 # Install protobuf compiler
 RUN apk add --no-cache protobuf
 
-# Install yarn
-RUN npm install -g yarn
+# Install yarn (skip if already exists)
+RUN [ -x "$(command -v yarn)" ] || npm install -g yarn
 
 WORKDIR /app
 

@@ -18,8 +18,12 @@ export const rateLimitMiddleware = () => {
   const speedLimiter = slowDown({
     windowMs: config.rateLimit.windowMs,
     delayAfter: config.rateLimit.delayAfter,
-    delayMs: config.rateLimit.delayMs
+    delayMs: (used) => {
+      const delayAfter = config.rateLimit.delayAfter;
+      const delayMs = config.rateLimit.delayMs;
+      return (used - delayAfter) * delayMs;
+    },
   });
 
   return { limiter, speedLimiter };
-}; 
+};

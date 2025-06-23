@@ -22,7 +22,7 @@ const GRPC_STATUS_CODES = {
   INTERNAL: 13,
   UNAVAILABLE: 14,
   DATA_LOSS: 15,
-  UNAUTHENTICATED: 16
+  UNAUTHENTICATED: 16,
 };
 
 /**
@@ -32,58 +32,58 @@ export const DEFAULT_ERROR_MAPPING = {
   [GRPC_STATUS_CODES.INVALID_ARGUMENT]: {
     status: 400,
     message: 'Invalid request data',
-    code: 'INVALID_ARGUMENT'
+    code: 'INVALID_ARGUMENT',
   },
   [GRPC_STATUS_CODES.NOT_FOUND]: {
     status: 404,
     message: 'Resource not found',
-    code: 'NOT_FOUND'
+    code: 'NOT_FOUND',
   },
   [GRPC_STATUS_CODES.ALREADY_EXISTS]: {
     status: 409,
     message: 'Resource already exists',
-    code: 'ALREADY_EXISTS'
+    code: 'ALREADY_EXISTS',
   },
   [GRPC_STATUS_CODES.PERMISSION_DENIED]: {
     status: 403,
     message: 'Permission denied',
-    code: 'PERMISSION_DENIED'
+    code: 'PERMISSION_DENIED',
   },
   [GRPC_STATUS_CODES.FAILED_PRECONDITION]: {
     status: 400,
     message: 'Operation failed due to precondition not met',
-    code: 'FAILED_PRECONDITION'
+    code: 'FAILED_PRECONDITION',
   },
   [GRPC_STATUS_CODES.ABORTED]: {
     status: 409,
     message: 'Operation aborted',
-    code: 'ABORTED'
+    code: 'ABORTED',
   },
   [GRPC_STATUS_CODES.UNAUTHENTICATED]: {
     status: 401,
     message: 'Unauthorized',
-    code: 'UNAUTHENTICATED'
+    code: 'UNAUTHENTICATED',
   },
   [GRPC_STATUS_CODES.RESOURCE_EXHAUSTED]: {
     status: 429,
     message: 'Resource exhausted',
-    code: 'RESOURCE_EXHAUSTED'
+    code: 'RESOURCE_EXHAUSTED',
   },
   [GRPC_STATUS_CODES.UNAVAILABLE]: {
     status: 503,
     message: 'Service unavailable',
-    code: 'UNAVAILABLE'
+    code: 'UNAVAILABLE',
   },
   [GRPC_STATUS_CODES.INTERNAL]: {
     status: 500,
     message: 'Internal server error',
-    code: 'INTERNAL'
+    code: 'INTERNAL',
   },
   [GRPC_STATUS_CODES.UNKNOWN]: {
     status: 500,
     message: 'Unknown error occurred',
-    code: 'UNKNOWN'
-  }
+    code: 'UNKNOWN',
+  },
 };
 
 /**
@@ -94,18 +94,18 @@ export const AUTH_ERROR_MAPPING = {
   [GRPC_STATUS_CODES.INVALID_ARGUMENT]: {
     status: 401,
     message: 'Invalid credentials',
-    code: 'INVALID_CREDENTIALS'
+    code: 'INVALID_CREDENTIALS',
   },
   [GRPC_STATUS_CODES.ALREADY_EXISTS]: {
     status: 409,
     message: 'User already exists',
-    code: 'USER_EXISTS'
+    code: 'USER_EXISTS',
   },
   [GRPC_STATUS_CODES.UNAUTHENTICATED]: {
     status: 401,
     message: 'Invalid refresh token',
-    code: 'INVALID_REFRESH_TOKEN'
-  }
+    code: 'INVALID_REFRESH_TOKEN',
+  },
 };
 
 /**
@@ -116,18 +116,18 @@ export const USER_ERROR_MAPPING = {
   [GRPC_STATUS_CODES.NOT_FOUND]: {
     status: 404,
     message: 'User not found',
-    code: 'USER_NOT_FOUND'
+    code: 'USER_NOT_FOUND',
   },
   [GRPC_STATUS_CODES.INVALID_ARGUMENT]: {
     status: 400,
     message: 'Invalid user data',
-    code: 'INVALID_USER_DATA'
+    code: 'INVALID_USER_DATA',
   },
   [GRPC_STATUS_CODES.ALREADY_EXISTS]: {
     status: 409,
     message: 'User profile already exists',
-    code: 'PROFILE_EXISTS'
-  }
+    code: 'PROFILE_EXISTS',
+  },
 };
 
 /**
@@ -138,18 +138,18 @@ export const EVENT_ERROR_MAPPING = {
   [GRPC_STATUS_CODES.NOT_FOUND]: {
     status: 404,
     message: 'Event not found',
-    code: 'EVENT_NOT_FOUND'
+    code: 'EVENT_NOT_FOUND',
   },
   [GRPC_STATUS_CODES.INVALID_ARGUMENT]: {
     status: 400,
     message: 'Invalid event data',
-    code: 'INVALID_EVENT_DATA'
+    code: 'INVALID_EVENT_DATA',
   },
   [GRPC_STATUS_CODES.FAILED_PRECONDITION]: {
     status: 400,
     message: 'Event cannot be created/updated',
-    code: 'EVENT_OPERATION_FAILED'
-  }
+    code: 'EVENT_OPERATION_FAILED',
+  },
 };
 
 /**
@@ -160,23 +160,23 @@ export const BOOKING_ERROR_MAPPING = {
   [GRPC_STATUS_CODES.NOT_FOUND]: {
     status: 404,
     message: 'Booking not found',
-    code: 'BOOKING_NOT_FOUND'
+    code: 'BOOKING_NOT_FOUND',
   },
   [GRPC_STATUS_CODES.INVALID_ARGUMENT]: {
     status: 400,
     message: 'Invalid booking data',
-    code: 'INVALID_BOOKING_DATA'
+    code: 'INVALID_BOOKING_DATA',
   },
   [GRPC_STATUS_CODES.FAILED_PRECONDITION]: {
     status: 400,
     message: 'Booking cannot be cancelled',
-    code: 'BOOKING_CANCELLATION_FAILED'
+    code: 'BOOKING_CANCELLATION_FAILED',
   },
   [GRPC_STATUS_CODES.ALREADY_EXISTS]: {
     status: 409,
     message: 'Booking already exists',
-    code: 'BOOKING_EXISTS'
-  }
+    code: 'BOOKING_EXISTS',
+  },
 };
 
 /**
@@ -187,28 +187,28 @@ export const PAYMENT_ERROR_MAPPING = {
   [GRPC_STATUS_CODES.NOT_FOUND]: {
     status: 404,
     message: 'Payment not found',
-    code: 'PAYMENT_NOT_FOUND'
+    code: 'PAYMENT_NOT_FOUND',
   },
   [GRPC_STATUS_CODES.INVALID_ARGUMENT]: {
     status: 400,
     message: 'Invalid payment data',
-    code: 'INVALID_PAYMENT_DATA'
+    code: 'INVALID_PAYMENT_DATA',
   },
   [GRPC_STATUS_CODES.FAILED_PRECONDITION]: {
     status: 400,
     message: 'Payment cannot be refunded',
-    code: 'PAYMENT_REFUND_FAILED'
+    code: 'PAYMENT_REFUND_FAILED',
   },
   [GRPC_STATUS_CODES.ABORTED]: {
     status: 402,
     message: 'Payment failed',
-    code: 'PAYMENT_FAILED'
+    code: 'PAYMENT_FAILED',
   },
   [GRPC_STATUS_CODES.PERMISSION_DENIED]: {
     status: 403,
     message: 'Payment access denied',
-    code: 'PAYMENT_ACCESS_DENIED'
-  }
+    code: 'PAYMENT_ACCESS_DENIED',
+  },
 };
 
 /**
@@ -222,7 +222,7 @@ export const getErrorMapping = (serviceName) => {
     user: USER_ERROR_MAPPING,
     event: EVENT_ERROR_MAPPING,
     booking: BOOKING_ERROR_MAPPING,
-    payment: PAYMENT_ERROR_MAPPING
+    payment: PAYMENT_ERROR_MAPPING,
   };
 
   return mappings[serviceName.toLowerCase()] || DEFAULT_ERROR_MAPPING;
@@ -236,11 +236,14 @@ export const getErrorMapping = (serviceName) => {
  */
 export const getErrorInfo = (grpcCode, serviceName) => {
   const mapping = getErrorMapping(serviceName);
-  return mapping[grpcCode] || DEFAULT_ERROR_MAPPING[grpcCode] || {
-    status: 500,
-    message: 'Internal server error',
-    code: 'UNKNOWN_ERROR'
-  };
+  return (
+    mapping[grpcCode] ||
+    DEFAULT_ERROR_MAPPING[grpcCode] || {
+      status: 500,
+      message: 'Internal server error',
+      code: 'UNKNOWN_ERROR',
+    }
+  );
 };
 
-export { GRPC_STATUS_CODES }; 
+export { GRPC_STATUS_CODES };

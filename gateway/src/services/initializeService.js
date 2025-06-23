@@ -25,7 +25,7 @@ export const initializeGateway = (app) => {
   compressionMiddleware(app);
   bodyParsingMiddleware(app);
   loggingMiddleware(app);
-  
+
   const { limiter, speedLimiter } = rateLimitMiddleware();
   app.use(limiter);
   app.use(speedLimiter);
@@ -37,4 +37,4 @@ export const initializeGateway = (app) => {
   initializeErrorHandling(app);
 
   logger.info('Gateway initialization completed');
-}; 
+};

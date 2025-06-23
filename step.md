@@ -33,8 +33,8 @@ docker-compose up -d postgres redis rabbitmq consul
 ```bash
 cd shared-lib
 # Compile protobuf definitions
-protoc --go_out=. --go-grpc_out=. proto/*.proto
-protoc --java_out=. --grpc-java_out=. proto/*.proto
+protoc --go_out=. --go-grpc_out=. protos/*.proto
+protoc --java_out=. --grpc-java_out=. protos/*.proto
 ```
 
 ---
@@ -144,7 +144,7 @@ CREATE TABLE events (
 ### 4.1 **gRPC Service Definitions**
 
 ```protobuf
-// shared-lib/proto/booking.proto
+// shared-lib/protos/booking.proto
 service BookingService {
     rpc CreateBooking(CreateBookingRequest) returns (BookingResponse);
     rpc GetBooking(GetBookingRequest) returns (BookingResponse);

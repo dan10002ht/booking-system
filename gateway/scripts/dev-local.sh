@@ -23,9 +23,9 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose is not installed. Please install Docker Compose"
+# Check if Docker Compose v2 is installed
+if ! docker compose version &> /dev/null; then
+    echo "❌ Docker Compose v2 is not installed. Hãy cài Docker Desktop mới hoặc docker compose plugin."
     exit 1
 fi
 
@@ -34,7 +34,7 @@ echo "✅ Prerequisites check passed"
 # Start only infrastructure services (no other microservices)
 echo "🐳 Starting infrastructure services only..."
 cd ../deploy
-docker-compose -f docker-compose.dev.yml up -d redis postgres kafka zookeeper prometheus grafana elasticsearch kibana
+docker compose -f docker-compose.dev.yml up -d redis postgres kafka zookeeper prometheus grafana elasticsearch kibana
 
 # Wait for services to be ready
 echo "⏳ Waiting for infrastructure services to be ready..."
@@ -50,7 +50,7 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Generate gRPC code if proto files exist
-if [ -d "proto" ]; then
+if [ -d "protos" ]; then
     echo "🔧 Generating gRPC code..."
     yarn grpc:generate
 fi
@@ -59,11 +59,11 @@ fi
 echo "📝 Creating .env file for local development..."
 cat > .env << EOF
 # Server Configuration
-PORT=3000
+PORT=53000
 NODE_ENV=development
 
 # Redis Configuration
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://localhost:56379
 
 # JWT Configuration
 JWT_SECRET=dev_jwt_secret
@@ -113,15 +113,15 @@ echo "✅ .env file created"
 echo "🎯 Starting Gateway with hot reload (nodemon)..."
 echo ""
 echo "📊 Available endpoints:"
-echo "   - Gateway API: http://localhost:3000"
-echo "   - Swagger Docs: http://localhost:3000/api-docs"
-echo "   - Health Check: http://localhost:3000/health"
-echo "   - Metrics: http://localhost:3000/metrics"
+echo "   - Gateway API: http://localhost:53000"
+echo "   - Swagger Docs: http://localhost:53000/api-docs"
+echo "   - Health Check: http://localhost:53000/health"
+echo "   - Metrics: http://localhost:53000/metrics"
 echo ""
 echo "🔧 Development tools:"
-echo "   - Grafana: http://localhost:3001 (admin/admin)"
-echo "   - Prometheus: http://localhost:9090"
-echo "   - Kibana: http://localhost:5601"
+echo "   - Grafana: http://localhost:53001 (admin/admin)"
+echo "   - Prometheus: http://localhost:59090"
+echo "   - Kibana: http://localhost:55601"
 echo ""
 echo "💡 Tips:"
 echo "   - Gateway will auto-restart when you save changes"

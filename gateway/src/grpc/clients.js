@@ -21,7 +21,7 @@ const clientOptions = {
 };
 
 const loadProto = (protoFile) => {
-  const protoPath = path.join(__dirname, '..', 'proto', protoFile);
+  const protoPath = path.join(__dirname, '..', 'protos', protoFile);
   const packageDefinition = protoLoader.loadSync(protoPath, {
     keepCase: true,
     longs: String,
@@ -88,7 +88,8 @@ const createClient = (serviceUrl, serviceName, packageName) => {
       error: error.message,
       serviceUrl,
     });
-    throw error;
+    console.log('skipped service', serviceName);
+    // throw error;
   }
 };
 
