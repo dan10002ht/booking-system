@@ -27,4 +27,4 @@ export const initializeRoutes = (app, swaggerSpec) => {
   app.use('/api/events', authMiddleware, eventRoutes);
   app.use('/api/bookings', authMiddleware, bookingRoutes);
   app.use('/api/payments', authMiddleware, paymentRoutes);
-}; 
+};

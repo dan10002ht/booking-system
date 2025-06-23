@@ -31,4 +31,4 @@ app.listen(PORT, () => {
   logger.info(`Health check available at http://localhost:${PORT}/health`);
 });
 
-export default app; 
+export default app;

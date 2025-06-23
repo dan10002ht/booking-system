@@ -3,7 +3,7 @@ export {
   registerHandler,
   loginHandler,
   refreshTokenHandler,
-  logoutHandler
+  logoutHandler,
 } from './authHandlers.js';
 
 // User handlers
@@ -13,7 +13,7 @@ export {
   getAddressesHandler,
   addAddressHandler,
   updateAddressHandler,
-  deleteAddressHandler
+  deleteAddressHandler,
 } from './userHandlers.js';
 
 // Booking handlers
@@ -21,20 +21,25 @@ export {
   createBookingHandler,
   getUserBookingsHandler,
   getBookingHandler,
-  cancelBookingHandler
+  cancelBookingHandler,
+  updateBookingHandler,
 } from './bookingHandlers.js';
 
 // Event handlers
 export {
   getEventsHandler,
   getEventHandler,
-  searchEventsHandler
+  createEventHandler,
+  updateEventHandler,
+  deleteEventHandler,
 } from './eventHandlers.js';
 
 // Payment handlers
 export {
   processPaymentHandler,
-  getPaymentHistoryHandler,
+  getUserPaymentsHandler,
   getPaymentHandler,
-  refundPaymentHandler
-} from './paymentHandlers.js'; 
+  refundPaymentHandler,
+  getPaymentMethodsHandler,
+  addPaymentMethodHandler,
+} from './paymentHandlers.js';

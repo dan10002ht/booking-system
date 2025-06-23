@@ -59,7 +59,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
@@ -87,6 +87,39 @@ services:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
     networks:
       - booking-net
+
+  gateway:
+    build:
+      context: ../gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev_jwt_secret
+      - JWT_REFRESH_SECRET=dev_refresh_secret
+      - GRPC_AUTH_SERVICE_URL=auth-service:50051
+      - GRPC_USER_SERVICE_URL=user-profile:50052
+      - GRPC_EVENT_SERVICE_URL=event-management:50053
+      - GRPC_BOOKING_SERVICE_URL=booking-service:50054
+      - GRPC_BOOKING_WORKER_URL=booking-worker:50055
+      - GRPC_PAYMENT_SERVICE_URL=payment-service:50056
+      - GRPC_TICKET_SERVICE_URL=ticket-service:50057
+      - GRPC_NOTIFICATION_SERVICE_URL=notification-service:50058
+      - GRPC_ANALYTICS_SERVICE_URL=analytics-service:50059
+      - GRPC_PRICING_SERVICE_URL=pricing-service:50060
+      - GRPC_SUPPORT_SERVICE_URL=support-service:50061
+      - GRPC_INVOICE_SERVICE_URL=invoice-service:50062
+    depends_on:
+      - redis
+    volumes:
+      - ../gateway:/app
+      - /app/node_modules
+    networks:
+      - booking-net
+    restart: unless-stopped
 
 volumes:
   postgres_data:

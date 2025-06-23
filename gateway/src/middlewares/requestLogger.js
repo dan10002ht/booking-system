@@ -11,27 +11,27 @@ const requestLogger = (req, res, next) => {
 
   // Log request start
   const startTime = Date.now();
-  
+
   logger.info('Request started', {
     method: req.method,
     url: req.originalUrl,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
-    correlationId
+    correlationId,
   });
 
   // Override res.end to log response
   const originalEnd = res.end;
   res.end = (chunk, encoding) => {
     const responseTime = Date.now() - startTime;
-    
+
     logger.info('Request completed', {
       method: req.method,
       url: req.originalUrl,
       statusCode: res.statusCode,
       responseTime: `${responseTime}ms`,
       contentLength: res.get('Content-Length'),
-      correlationId
+      correlationId,
     });
 
     originalEnd.call(res, chunk, encoding);
@@ -40,4 +40,4 @@ const requestLogger = (req, res, next) => {
   next();
 };
 
-export default requestLogger; 
+export default requestLogger;

@@ -1,13 +1,6 @@
 import grpcClients from '../grpc/clients.js';
 import { sendSuccessResponse, createHandler, createSimpleHandler } from '../utils/responseHandler.js';
 
-// Custom error mappings for auth service
-const authErrorMapping = {
-  3: { status: 401, message: 'Invalid credentials' }, // INVALID_ARGUMENT -> 401 for auth
-  6: { status: 409, message: 'User already exists' }, // ALREADY_EXISTS
-  16: { status: 401, message: 'Invalid refresh token' } // UNAUTHENTICATED
-};
-
 /**
  * Register a new user
  */
@@ -37,13 +30,14 @@ const refreshUserToken = async (req, res) => {
  */
 const logoutUser = async (req, res) => {
   await grpcClients.authService.logout({
+    userId: req.user.id,
     refreshToken: req.body.refreshToken
   });
-  sendSuccessResponse(res, 200, { message: 'Logged out successfully' }, req.correlationId);
+  sendSuccessResponse(res, 200, { message: 'Logout successful' }, req.correlationId);
 };
 
 // Export wrapped handlers
-export const registerHandler = createHandler(registerUser, 'Auth', 'register', authErrorMapping);
-export const loginHandler = createHandler(loginUser, 'Auth', 'login', authErrorMapping);
-export const refreshTokenHandler = createHandler(refreshUserToken, 'Auth', 'refreshToken', authErrorMapping);
-export const logoutHandler = createSimpleHandler(logoutUser, 'Auth', 'logout'); 
+export const registerHandler = createHandler(registerUser, 'auth', 'register');
+export const loginHandler = createHandler(loginUser, 'auth', 'login');
+export const refreshTokenHandler = createHandler(refreshUserToken, 'auth', 'refreshToken');
+export const logoutHandler = createSimpleHandler(logoutUser, 'auth', 'logout'); 

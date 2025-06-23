@@ -1,11 +1,6 @@
 import grpcClients from '../grpc/clients.js';
 import { sendSuccessResponse, createSimpleHandler } from '../utils/responseHandler.js';
 
-// Custom error mappings for event service
-const eventErrorMapping = {
-  5: { status: 404, message: 'Event not found' } // NOT_FOUND
-};
-
 /**
  * Get all events
  */
@@ -13,7 +8,7 @@ const getAllEvents = async (req, res) => {
   const result = await grpcClients.eventService.getEvents({
     category: req.query.category,
     location: req.query.location,
-    date: req.query.date
+    date: req.query.date,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
@@ -23,25 +18,42 @@ const getAllEvents = async (req, res) => {
  */
 const getEventById = async (req, res) => {
   const result = await grpcClients.eventService.getEvent({
-    eventId: req.params.eventId
+    eventId: req.params.eventId,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
 
 /**
- * Search events
+ * Create new event
  */
-const searchAllEvents = async (req, res) => {
-  const result = await grpcClients.eventService.searchEvents({
-    query: req.query.q,
-    category: req.query.category,
-    location: req.query.location,
-    date: req.query.date
+const createNewEvent = async (req, res) => {
+  const result = await grpcClients.eventService.createEvent(req.body);
+  sendSuccessResponse(res, 201, result, req.correlationId);
+};
+
+/**
+ * Update event
+ */
+const updateEvent = async (req, res) => {
+  const result = await grpcClients.eventService.updateEvent({
+    eventId: req.params.eventId,
+    ...req.body,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
 
-// Export wrapped handlers
-export const getEventsHandler = createSimpleHandler(getAllEvents, 'Event', 'getEvents');
-export const getEventHandler = createSimpleHandler(getEventById, 'Event', 'getEvent', eventErrorMapping);
-export const searchEventsHandler = createSimpleHandler(searchAllEvents, 'Event', 'searchEvents'); 
+/**
+ * Delete event
+ */
+const deleteEvent = async (req, res) => {
+  await grpcClients.eventService.deleteEvent({
+    eventId: req.params.eventId,
+  });
+  sendSuccessResponse(res, 200, { message: 'Event deleted successfully' }, req.correlationId);
+};
+
+export const getEventsHandler = createSimpleHandler(getAllEvents, 'event', 'getEvents');
+export const getEventHandler = createSimpleHandler(getEventById, 'event', 'getEvent');
+export const createEventHandler = createSimpleHandler(createNewEvent, 'event', 'createEvent');
+export const updateEventHandler = createSimpleHandler(updateEvent, 'event', 'updateEvent');
+export const deleteEventHandler = createSimpleHandler(deleteEvent, 'event', 'deleteEvent');

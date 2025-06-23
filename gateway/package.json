@@ -7,10 +7,23 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "dev:local": "./scripts/dev-local.sh",
+    "dev:docker": "docker-compose -f ../deploy/docker-compose.dev.yml up gateway",
     "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .js",
+    "lint:fix": "eslint src --ext .js --fix",
     "format": "prettier --write \"src/**/*.js\"",
-    "grpc:generate": "protoc --js_out=import_style=commonjs,binary:./src/proto --grpc_out=./src/proto --plugin=protoc-gen-grpc=./node_modules/.bin/grpc_tools_node_protoc_plugin proto/*.proto"
+    "grpc:generate": "protoc --js_out=import_style=commonjs,binary:./src/proto --grpc_out=./src/proto --plugin=protoc-gen-grpc=./node_modules/.bin/grpc_tools_node_protoc_plugin proto/*.proto",
+    "docker:build": "docker build -t booking-system/gateway .",
+    "docker:run": "docker run -p 3000:3000 booking-system/gateway",
+    "infra:start": "docker-compose -f ../deploy/docker-compose.dev.yml up -d",
+    "infra:stop": "docker-compose -f ../deploy/docker-compose.dev.yml down",
+    "infra:logs": "docker-compose -f ../deploy/docker-compose.dev.yml logs -f",
+    "install:yarn": "yarn install",
+    "add": "yarn add",
+    "add:dev": "yarn add -D"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -31,10 +44,11 @@
     "swagger-ui-express": "^5.0.0",
     "prom-client": "^15.1.0",
     "express-prom-bundle": "^7.0.0",
-    "circuit-breaker-js": "^0.0.2",
+    "opossum": "^8.2.3",
     "axios": "^1.6.2",
     "dotenv": "^16.3.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "yamljs": "^0.3.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

@@ -4,9 +4,11 @@ import { body } from 'express-validator';
 // Import handlers
 import {
   processPaymentHandler,
-  getPaymentHistoryHandler,
+  getUserPaymentsHandler,
   getPaymentHandler,
-  refundPaymentHandler
+  refundPaymentHandler,
+  getPaymentMethodsHandler,
+  addPaymentMethodHandler,
 } from '../handlers/index.js';
 
 const router = express.Router();
@@ -54,14 +56,20 @@ const router = express.Router();
  *       402:
  *         description: Payment failed
  */
-router.post('/', [
-  body('bookingId').notEmpty().trim(),
-  body('amount').isFloat({ min: 0.01 }),
-  body('paymentMethod').isIn(['credit_card', 'debit_card', 'bank_transfer']),
-  body('cardNumber').optional().isCreditCard(),
-  body('expiryDate').optional().matches(/^\d{2}\/\d{2}$/),
-  body('cvv').optional().isLength({ min: 3, max: 4 })
-], processPaymentHandler);
+router.post(
+  '/',
+  [
+    body('bookingId').notEmpty().trim(),
+    body('amount').isFloat({ min: 0.01 }),
+    body('paymentMethod').isIn(['credit_card', 'debit_card', 'bank_transfer']),
+    body('cardNumber').optional().isCreditCard(),
+    body('expiryDate')
+      .optional()
+      .matches(/^\d{2}\/\d{2}$/),
+    body('cvv').optional().isLength({ min: 3, max: 4 }),
+  ],
+  processPaymentHandler
+);
 
 /**
  * @swagger
@@ -89,7 +97,49 @@ router.post('/', [
  *       401:
  *         description: Unauthorized
  */
-router.get('/', getPaymentHistoryHandler);
+router.get('/', getUserPaymentsHandler);
+
+/**
+ * @swagger
+ * /payments/methods:
+ *   get:
+ *     summary: Get payment methods
+ *     description: Retrieve user's payment methods
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Payment methods retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/methods', getPaymentMethodsHandler);
+
+/**
+ * @swagger
+ * /payments/methods:
+ *   post:
+ *     summary: Add payment method
+ *     description: Add a new payment method
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Payment method added successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/methods', addPaymentMethodHandler);
 
 /**
  * @swagger
@@ -152,8 +202,6 @@ router.get('/:paymentId', getPaymentHandler);
  *       404:
  *         description: Payment not found
  */
-router.post('/:paymentId/refund', [
-  body('reason').notEmpty().trim()
-], refundPaymentHandler);
+router.post('/:paymentId/refund', [body('reason').notEmpty().trim()], refundPaymentHandler);
 
-export default router; 
+export default router;

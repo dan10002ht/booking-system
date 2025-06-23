@@ -1,5 +1,6 @@
 import { validationResult } from 'express-validator';
 import logger from './logger.js';
+import { getErrorMapping, getErrorInfo } from './errorMapping.js';
 
 /**
  * Handle validation errors
@@ -12,6 +13,7 @@ export const handleValidation = (req, res) => {
   if (!errors.isEmpty()) {
     res.status(400).json({
       error: 'Validation Error',
+      code: 'VALIDATION_ERROR',
       details: errors.array(),
       correlationId: req.correlationId
     });
@@ -41,12 +43,17 @@ export const sendSuccessResponse = (res, statusCode, data, correlationId) => {
  * @param {string} error - Error message
  * @param {string} correlationId - Correlation ID
  * @param {Object} details - Additional error details
+ * @param {string} code - Error code
  */
-export const sendErrorResponse = (res, statusCode, error, correlationId, details = null) => {
+export const sendErrorResponse = (res, statusCode, error, correlationId, details = null, code = null) => {
   const response = {
     error,
     correlationId
   };
+
+  if (code) {
+    response.code = code;
+  }
 
   if (details) {
     response.details = details;
@@ -62,9 +69,9 @@ export const sendErrorResponse = (res, statusCode, error, correlationId, details
  * @param {string} correlationId - Correlation ID
  * @param {string} serviceName - Service name for logging
  * @param {string} methodName - Method name for logging
- * @param {Object} errorMapping - Custom error mapping
+ * @param {Object} customErrorMapping - Custom error mapping (optional)
  */
-export const handleGrpcError = (res, error, correlationId, serviceName, methodName, errorMapping = {}) => {
+export const handleGrpcError = (res, error, correlationId, serviceName, methodName, customErrorMapping = {}) => {
   // Log error
   logger.error(`${serviceName} ${methodName} error`, {
     error: error.message,
@@ -72,23 +79,19 @@ export const handleGrpcError = (res, error, correlationId, serviceName, methodNa
     correlationId
   });
 
-  // Default error mappings
-  const defaultMapping = {
-    3: { status: 400, message: 'Invalid request data' }, // INVALID_ARGUMENT
-    5: { status: 404, message: 'Resource not found' },   // NOT_FOUND
-    6: { status: 409, message: 'Resource already exists' }, // ALREADY_EXISTS
-    7: { status: 403, message: 'Permission denied' },    // PERMISSION_DENIED
-    9: { status: 400, message: 'Operation failed' },     // FAILED_PRECONDITION
-    10: { status: 402, message: 'Operation aborted' },   // ABORTED
-    16: { status: 401, message: 'Unauthorized' }         // UNAUTHENTICATED
+  // Get error mapping for the service
+  const serviceErrorMapping = getErrorMapping(serviceName);
+  
+  // Merge with custom mapping (custom mapping takes precedence)
+  const mapping = { ...serviceErrorMapping, ...customErrorMapping };
+  
+  const errorInfo = mapping[error.code] || {
+    status: 500,
+    message: 'Internal Server Error',
+    code: 'INTERNAL_ERROR'
   };
-
-  // Merge with custom mapping
-  const mapping = { ...defaultMapping, ...errorMapping };
   
-  const errorInfo = mapping[error.code] || { status: 500, message: 'Internal Server Error' };
-  
-  sendErrorResponse(res, errorInfo.status, errorInfo.message, correlationId);
+  sendErrorResponse(res, errorInfo.status, errorInfo.message, correlationId, null, errorInfo.code);
 };
 
 /**
@@ -96,10 +99,10 @@ export const handleGrpcError = (res, error, correlationId, serviceName, methodNa
  * @param {Function} handler - The handler function
  * @param {string} serviceName - Service name for logging
  * @param {string} methodName - Method name for logging
- * @param {Object} errorMapping - Custom error mapping
+ * @param {Object} customErrorMapping - Custom error mapping (optional)
  * @returns {Function} Wrapped handler function
  */
-export const createHandler = (handler, serviceName, methodName, errorMapping = {}) => {
+export const createHandler = (handler, serviceName, methodName, customErrorMapping = {}) => {
   return async (req, res) => {
     try {
       // Handle validation if needed
@@ -111,7 +114,7 @@ export const createHandler = (handler, serviceName, methodName, errorMapping = {
       await handler(req, res);
 
     } catch (error) {
-      handleGrpcError(res, error, req.correlationId, serviceName, methodName, errorMapping);
+      handleGrpcError(res, error, req.correlationId, serviceName, methodName, customErrorMapping);
     }
   };
 };
@@ -121,15 +124,15 @@ export const createHandler = (handler, serviceName, methodName, errorMapping = {
  * @param {Function} handler - The handler function
  * @param {string} serviceName - Service name for logging
  * @param {string} methodName - Method name for logging
- * @param {Object} errorMapping - Custom error mapping
+ * @param {Object} customErrorMapping - Custom error mapping (optional)
  * @returns {Function} Wrapped handler function
  */
-export const createSimpleHandler = (handler, serviceName, methodName, errorMapping = {}) => {
+export const createSimpleHandler = (handler, serviceName, methodName, customErrorMapping = {}) => {
   return async (req, res) => {
     try {
       await handler(req, res);
     } catch (error) {
-      handleGrpcError(res, error, req.correlationId, serviceName, methodName, errorMapping);
+      handleGrpcError(res, error, req.correlationId, serviceName, methodName, customErrorMapping);
     }
   };
 }; 

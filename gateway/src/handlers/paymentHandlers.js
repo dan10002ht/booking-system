@@ -3,14 +3,6 @@ import logger from '../utils/logger.js';
 import grpcClients from '../grpc/clients.js';
 import { sendSuccessResponse, createHandler, createSimpleHandler } from '../utils/responseHandler.js';
 
-// Custom error mappings for payment service
-const paymentErrorMapping = {
-  3: { status: 400, message: 'Invalid payment data' }, // INVALID_ARGUMENT
-  5: { status: 404, message: 'Payment not found' },    // NOT_FOUND
-  9: { status: 400, message: 'Payment cannot be refunded' }, // FAILED_PRECONDITION
-  10: { status: 402, message: 'Payment failed' }       // ABORTED
-};
-
 /**
  * Process payment
  */
@@ -18,18 +10,6 @@ const processUserPayment = async (req, res) => {
   const result = await grpcClients.paymentService.processPayment({
     userId: req.user.id,
     ...req.body
-  });
-  sendSuccessResponse(res, 200, result, req.correlationId);
-};
-
-/**
- * Get payment history
- */
-const getUserPaymentHistory = async (req, res) => {
-  const result = await grpcClients.paymentService.getPaymentHistory({
-    userId: req.user.id,
-    limit: req.query.limit,
-    offset: req.query.offset
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
@@ -46,6 +26,19 @@ const getPaymentById = async (req, res) => {
 };
 
 /**
+ * Get user payments
+ */
+const getUserPayments = async (req, res) => {
+  const result = await grpcClients.paymentService.getUserPayments({
+    userId: req.user.id,
+    status: req.query.status,
+    limit: req.query.limit,
+    offset: req.query.offset
+  });
+  sendSuccessResponse(res, 200, result, req.correlationId);
+};
+
+/**
  * Refund payment
  */
 const refundUserPayment = async (req, res) => {
@@ -57,8 +50,31 @@ const refundUserPayment = async (req, res) => {
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
 
+/**
+ * Get payment methods
+ */
+const getPaymentMethods = async (req, res) => {
+  const result = await grpcClients.paymentService.getPaymentMethods({
+    userId: req.user.id
+  });
+  sendSuccessResponse(res, 200, result, req.correlationId);
+};
+
+/**
+ * Add payment method
+ */
+const addPaymentMethod = async (req, res) => {
+  const result = await grpcClients.paymentService.addPaymentMethod({
+    userId: req.user.id,
+    ...req.body
+  });
+  sendSuccessResponse(res, 201, result, req.correlationId);
+};
+
 // Export wrapped handlers
-export const processPaymentHandler = createHandler(processUserPayment, 'Payment', 'processPayment', paymentErrorMapping);
-export const getPaymentHistoryHandler = createSimpleHandler(getUserPaymentHistory, 'Payment', 'getPaymentHistory');
-export const getPaymentHandler = createSimpleHandler(getPaymentById, 'Payment', 'getPayment', paymentErrorMapping);
-export const refundPaymentHandler = createHandler(refundUserPayment, 'Payment', 'refundPayment', paymentErrorMapping); 
+export const processPaymentHandler = createHandler(processUserPayment, 'payment', 'processPayment');
+export const getPaymentHandler = createSimpleHandler(getPaymentById, 'payment', 'getPayment');
+export const getUserPaymentsHandler = createSimpleHandler(getUserPayments, 'payment', 'getUserPayments');
+export const refundPaymentHandler = createHandler(refundUserPayment, 'payment', 'refundPayment');
+export const getPaymentMethodsHandler = createSimpleHandler(getPaymentMethods, 'payment', 'getPaymentMethods');
+export const addPaymentMethodHandler = createHandler(addPaymentMethod, 'payment', 'addPaymentMethod'); 

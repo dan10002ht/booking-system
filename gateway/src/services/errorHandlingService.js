@@ -1,4 +1,4 @@
-import errorHandler from '../middlewares/errorHandler.js';
+import { errorHandlerMiddleware } from '../middlewares/index.js';
 import config from '../config/index.js';
 
 /**
@@ -18,8 +18,8 @@ export const initializeErrorHandling = (app) => {
         user: config.grpc.userService.url,
         event: config.grpc.eventService.url,
         booking: config.grpc.bookingService.url,
-        payment: config.grpc.paymentService.url
-      }
+        payment: config.grpc.paymentService.url,
+      },
     });
   });
 
@@ -28,10 +28,10 @@ export const initializeErrorHandling = (app) => {
     res.status(404).json({
       error: 'Route not found',
       path: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
   });
 
   // Error handling middleware
-  app.use(errorHandler);
-}; 
+  app.use(errorHandlerMiddleware);
+};

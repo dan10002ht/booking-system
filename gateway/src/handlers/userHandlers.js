@@ -1,12 +1,6 @@
 import grpcClients from '../grpc/clients.js';
 import { sendSuccessResponse, createHandler, createSimpleHandler } from '../utils/responseHandler.js';
 
-// Custom error mappings for user service
-const userErrorMapping = {
-  5: { status: 404, message: 'User not found' }, // NOT_FOUND
-  3: { status: 400, message: 'Invalid user data' } // INVALID_ARGUMENT
-};
-
 /**
  * Get user profile
  */
@@ -69,13 +63,14 @@ const deleteUserAddress = async (req, res) => {
     userId: req.user.id,
     addressId: req.params.addressId
   });
-  res.status(204).send();
+  sendSuccessResponse(res, 200, { message: 'Address deleted successfully' }, req.correlationId);
 };
 
 // Export wrapped handlers
-export const getProfileHandler = createSimpleHandler(getUserProfile, 'User', 'getProfile', userErrorMapping);
-export const updateProfileHandler = createHandler(updateUserProfile, 'User', 'updateProfile', userErrorMapping);
-export const getAddressesHandler = createSimpleHandler(getUserAddresses, 'User', 'getAddresses');
-export const addAddressHandler = createHandler(addUserAddress, 'User', 'addAddress', userErrorMapping);
-export const updateAddressHandler = createHandler(updateUserAddress, 'User', 'updateAddress', userErrorMapping);
-export const deleteAddressHandler = createSimpleHandler(deleteUserAddress, 'User', 'deleteAddress', userErrorMapping); 
+export const getProfileHandler = createSimpleHandler(getUserProfile, 'user', 'getProfile');
+export const updateProfileHandler = createHandler(updateUserProfile, 'user', 'updateProfile');
+
+export const getAddressesHandler = createSimpleHandler(getUserAddresses, 'user', 'getAddresses');
+export const addAddressHandler = createHandler(addUserAddress, 'user', 'addAddress');
+export const updateAddressHandler = createHandler(updateUserAddress, 'user', 'updateAddress');
+export const deleteAddressHandler = createSimpleHandler(deleteUserAddress, 'user', 'deleteAddress'); 
