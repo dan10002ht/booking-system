@@ -4,7 +4,7 @@ import organizationService from '../services/organizationService.js';
 import logger from '../utils/logger.js';
 
 // User authentication
-export async function reggister(call, callback) {
+export async function register(call, callback) {
   try {
     const { email, password, first_name, last_name, phone, role = 'individual', organization } = call.request;
 

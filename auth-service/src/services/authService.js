@@ -2,6 +2,12 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import config from '../config/index.js';
+import * as userRepository from '../repositories/userRepository.js';
+import * as organizationRepository from '../repositories/organizationRepository.js';
+import * as oauthAccountRepository from '../repositories/oauthAccountRepository.js';
+import * as roleRepository from '../repositories/roleRepository.js';
+import * as permissionRepository from '../repositories/permissionRepository.js';
+import * as tokenRepository from '../repositories/tokenRepository.js';
 import db from '../config/database.js';
 
 // Email/Password Authentication
@@ -10,7 +16,7 @@ export async function register(userData, roleName = 'individual') {
 
   try {
     // Check if user already exists
-    const existingUser = await findUserByEmail(userData.email);
+    const existingUser = await userRepository.findByEmail(userData.email);
     if (existingUser) {
       throw new Error('User already exists with this email');
     }
@@ -19,26 +25,23 @@ export async function register(userData, roleName = 'individual') {
     const hashedPassword = await bcrypt.hash(userData.password, 10);
 
     // Create user
-    const user = await createUser({
+    const user = await userRepository.create({
       ...userData,
       password_hash: hashedPassword,
       auth_type: 'email',
     });
 
     // Assign role
-    const role = await findRoleByName(roleName);
+    const role = await roleRepository.findByName(roleName);
     if (!role) {
       throw new Error(`Role '${roleName}' not found`);
     }
 
-    await db('user_roles').insert({
-      user_id: user.id,
-      role_id: role.id,
-    });
+    await roleRepository.assignToUser(user.id, role.id);
 
     // Create organization if role is organization
     if (roleName === 'organization' && userData.organization) {
-      await createOrganization({
+      await organizationRepository.create({
         user_id: user.id,
         ...userData.organization,
       });
@@ -57,7 +60,7 @@ export async function register(userData, roleName = 'individual') {
 
 export async function login(email, password) {
   // Find user
-  const user = await findUserByEmail(email);
+  const user = await userRepository.findByEmail(email);
   if (!user) {
     throw new Error('Invalid credentials');
   }
@@ -78,7 +81,7 @@ export async function login(email, password) {
   }
 
   // Update last login
-  await updateUser(user.id, { last_login_at: new Date() });
+  await userRepository.update(user.id, { last_login_at: new Date() });
 
   // Generate tokens
   const tokens = await generateTokens(user);
@@ -97,24 +100,24 @@ export async function oauthLogin(provider, providerData) {
 
   try {
     // Check if OAuth account exists
-    let oauthAccount = await findOAuthAccountByProvider(provider, providerData.id);
+    let oauthAccount = await oauthAccountRepository.findByProvider(provider, providerData.id);
 
     if (oauthAccount) {
       // Update OAuth account
-      await updateOAuthAccount(oauthAccount.id, {
+      await oauthAccountRepository.update(oauthAccount.id, {
         access_token: providerData.access_token,
         refresh_token: providerData.refresh_token,
         expires_at: providerData.expires_at,
       });
 
       // Get user
-      const user = await findUserById(oauthAccount.user_id);
+      const user = await userRepository.findById(oauthAccount.user_id);
       if (!user.is_active) {
         throw new Error('Account is deactivated');
       }
 
       // Update last login
-      await updateUser(user.id, { last_login_at: new Date() });
+      await userRepository.update(user.id, { last_login_at: new Date() });
 
       // Generate tokens
       const tokens = await generateTokens(user);
@@ -128,7 +131,7 @@ export async function oauthLogin(provider, providerData) {
       };
     } else {
       // Create new user and OAuth account
-      const user = await createUser({
+      const user = await userRepository.create({
         email: providerData.email,
         first_name: providerData.first_name,
         last_name: providerData.last_name,
@@ -139,7 +142,7 @@ export async function oauthLogin(provider, providerData) {
       });
 
       // Create OAuth account
-      await createOAuthAccount({
+      await oauthAccountRepository.create({
         user_id: user.id,
         provider,
         provider_user_id: providerData.id,
@@ -149,11 +152,8 @@ export async function oauthLogin(provider, providerData) {
       });
 
       // Assign default role (individual)
-      const role = await findRoleByName('individual');
-      await db('user_roles').insert({
-        user_id: user.id,
-        role_id: role.id,
-      });
+      const role = await roleRepository.findByName('individual');
+      await roleRepository.assignToUser(user.id, role.id);
 
       await transaction.commit();
 
@@ -187,7 +187,7 @@ export async function generateTokens(user) {
   const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
 
   // Store refresh token
-  await db('refresh_tokens').insert({
+  await tokenRepository.createRefreshToken({
     user_id: user.id,
     token_hash: refreshTokenHash,
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
@@ -201,9 +201,7 @@ export async function generateTokens(user) {
 
 export async function refreshToken(refreshToken) {
   // Find refresh token
-  const refreshTokens = await db('refresh_tokens')
-    .where('is_revoked', false)
-    .where('expires_at', '>', new Date());
+  const refreshTokens = await tokenRepository.findValidRefreshTokens();
 
   let validToken = null;
   for (const token of refreshTokens) {
@@ -219,15 +217,13 @@ export async function refreshToken(refreshToken) {
   }
 
   // Get user
-  const user = await findUserById(validToken.user_id);
+  const user = await userRepository.findById(validToken.user_id);
   if (!user || !user.is_active) {
     throw new Error('User not found or inactive');
   }
 
   // Revoke old refresh token
-  await db('refresh_tokens')
-    .where('id', validToken.id)
-    .update({ is_revoked: true });
+  await tokenRepository.revokeRefreshToken(validToken.id);
 
   // Generate new tokens
   return await generateTokens(user);
@@ -235,15 +231,12 @@ export async function refreshToken(refreshToken) {
 
 export async function logout(refreshToken) {
   // Find and revoke refresh token
-  const refreshTokens = await db('refresh_tokens')
-    .where('is_revoked', false);
+  const refreshTokens = await tokenRepository.findValidRefreshTokens();
 
   for (const token of refreshTokens) {
     const isValid = await bcrypt.compare(refreshToken, token.token_hash);
     if (isValid) {
-      await db('refresh_tokens')
-        .where('id', token.id)
-        .update({ is_revoked: true });
+      await tokenRepository.revokeRefreshToken(token.id);
       break;
     }
   }
@@ -251,7 +244,7 @@ export async function logout(refreshToken) {
 
 // Password Reset
 export async function forgotPassword(email) {
-  const user = await findUserByEmail(email);
+  const user = await userRepository.findByEmail(email);
   if (!user) {
     throw new Error('User not found');
   }
@@ -261,7 +254,7 @@ export async function forgotPassword(email) {
   const resetTokenHash = await bcrypt.hash(resetToken, 10);
 
   // Store reset token
-  await db('password_reset_tokens').insert({
+  await tokenRepository.createPasswordResetToken({
     user_id: user.id,
     token_hash: resetTokenHash,
     expires_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
@@ -272,9 +265,7 @@ export async function forgotPassword(email) {
 
 export async function resetPassword(token, newPassword) {
   // Find reset token
-  const resetTokens = await db('password_reset_tokens')
-    .where('is_used', false)
-    .where('expires_at', '>', new Date());
+  const resetTokens = await tokenRepository.findValidPasswordResetTokens();
 
   let validToken = null;
   for (const resetToken of resetTokens) {
@@ -293,19 +284,17 @@ export async function resetPassword(token, newPassword) {
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
   // Update user password
-  await updateUser(validToken.user_id, {
+  await userRepository.update(validToken.user_id, {
     password_hash: hashedPassword,
   });
 
   // Mark token as used
-  await db('password_reset_tokens')
-    .where('id', validToken.id)
-    .update({ is_used: true });
+  await tokenRepository.markPasswordResetTokenAsUsed(validToken.id);
 }
 
 // Email Verification
 export async function sendVerificationEmail(email) {
-  const user = await findUserByEmail(email);
+  const user = await userRepository.findByEmail(email);
   if (!user) {
     throw new Error('User not found');
   }
@@ -319,7 +308,7 @@ export async function sendVerificationEmail(email) {
   const verificationTokenHash = await bcrypt.hash(verificationToken, 10);
 
   // Store verification token
-  await db('email_verification_tokens').insert({
+  await tokenRepository.createEmailVerificationToken({
     user_id: user.id,
     token_hash: verificationTokenHash,
     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
@@ -330,9 +319,7 @@ export async function sendVerificationEmail(email) {
 
 export async function verifyEmail(token) {
   // Find verification token
-  const verificationTokens = await db('email_verification_tokens')
-    .where('is_used', false)
-    .where('expires_at', '>', new Date());
+  const verificationTokens = await tokenRepository.findValidEmailVerificationTokens();
 
   let validToken = null;
   for (const verificationToken of verificationTokens) {
@@ -348,22 +335,20 @@ export async function verifyEmail(token) {
   }
 
   // Update user
-  await updateUser(validToken.user_id, {
+  await userRepository.update(validToken.user_id, {
     is_verified: true,
     email_verified_at: new Date(),
   });
 
   // Mark token as used
-  await db('email_verification_tokens')
-    .where('id', validToken.id)
-    .update({ is_used: true });
+  await tokenRepository.markEmailVerificationTokenAsUsed(validToken.id);
 }
 
 // Utility methods
 export async function verifyToken(token) {
   try {
     const decoded = jwt.verify(token, config.jwt.secret);
-    const user = await findUserById(decoded.userId);
+    const user = await userRepository.findById(decoded.userId);
     
     if (!user || !user.is_active) {
       return null;
@@ -376,106 +361,5 @@ export async function verifyToken(token) {
 }
 
 export async function getUserPermissions(userId) {
-  const user = await findUserWithRoles(userId);
-  if (!user || !user.roles) {
-    return [];
-  }
-
-  const permissions = [];
-  for (const role of user.roles) {
-    const roleWithPermissions = await findRoleWithPermissions(role.id);
-    if (roleWithPermissions && roleWithPermissions.permissions) {
-      permissions.push(...roleWithPermissions.permissions);
-    }
-  }
-
-  return permissions;
-}
-
-// Database helper functions
-async function findUserByEmail(email) {
-  return await db('users').where({ email }).first();
-}
-
-async function findUserById(id) {
-  return await db('users').where({ id }).first();
-}
-
-async function createUser(userData) {
-  const [user] = await db('users').insert(userData).returning('*');
-  return user;
-}
-
-async function updateUser(id, updateData) {
-  const [user] = await db('users')
-    .where({ id })
-    .update({ ...updateData, updated_at: new Date() })
-    .returning('*');
-  return user;
-}
-
-async function findUserWithRoles(id) {
-  const user = await db('users')
-    .leftJoin('user_roles', 'users.id', 'user_roles.user_id')
-    .leftJoin('roles', 'user_roles.role_id', 'roles.id')
-    .where('users.id', id)
-    .select(
-      'users.*',
-      db.raw('json_agg(json_build_object(\'id\', roles.id, \'name\', roles.name, \'description\', roles.description)) as roles')
-    )
-    .groupBy('users.id')
-    .first();
-
-  if (user && user.roles) {
-    user.roles = user.roles.filter(role => role.id !== null);
-  }
-
-  return user;
-}
-
-async function findRoleByName(name) {
-  return await db('roles').where({ name }).first();
-}
-
-async function findRoleWithPermissions(id) {
-  const role = await db('roles')
-    .leftJoin('role_permissions', 'roles.id', 'role_permissions.role_id')
-    .leftJoin('permissions', 'role_permissions.permission_id', 'permissions.id')
-    .where('roles.id', id)
-    .select(
-      'roles.*',
-      db.raw('json_agg(json_build_object(\'id\', permissions.id, \'name\', permissions.name, \'resource\', permissions.resource, \'action\', permissions.action)) as permissions')
-    )
-    .groupBy('roles.id')
-    .first();
-
-  if (role && role.permissions) {
-    role.permissions = role.permissions.filter(permission => permission.id !== null);
-  }
-
-  return role;
-}
-
-async function createOrganization(organizationData) {
-  const [organization] = await db('organizations').insert(organizationData).returning('*');
-  return organization;
-}
-
-async function findOAuthAccountByProvider(provider, providerUserId) {
-  return await db('oauth_accounts')
-    .where({ provider, provider_user_id: providerUserId })
-    .first();
-}
-
-async function createOAuthAccount(oauthData) {
-  const [oauthAccount] = await db('oauth_accounts').insert(oauthData).returning('*');
-  return oauthAccount;
-}
-
-async function updateOAuthAccount(id, updateData) {
-  const [oauthAccount] = await db('oauth_accounts')
-    .where({ id })
-    .update({ ...updateData, updated_at: new Date() })
-    .returning('*');
-  return oauthAccount;
+  return await permissionRepository.getUserPermissions(userId);
 } 

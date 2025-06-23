@@ -1,135 +1,42 @@
-import db from '../config/database.js';
+import * as userRepository from '../repositories/userRepository.js';
+import * as organizationRepository from '../repositories/organizationRepository.js';
 
 export async function findById(id) {
-  return await db('users').where({ id }).first();
+  return await userRepository.findById(id);
 }
 
 export async function findByEmail(email) {
-  return await db('users').where({ email }).first();
+  return await userRepository.findByEmail(email);
 }
 
 export async function findByOAuthProvider(provider, providerUserId) {
-  return await db('users')
-    .join('oauth_accounts', 'users.id', 'oauth_accounts.user_id')
-    .where({
-      'oauth_accounts.provider': provider,
-      'oauth_accounts.provider_user_id': providerUserId,
-    })
-    .select('users.*')
-    .first();
+  return await userRepository.findByOAuthProvider(provider, providerUserId);
 }
 
 export async function create(userData) {
-  const [user] = await db('users').insert(userData).returning('*');
-  return user;
+  return await userRepository.create(userData);
 }
 
 export async function update(id, updateData) {
-  const [user] = await db('users')
-    .where({ id })
-    .update({ ...updateData, updated_at: new Date() })
-    .returning('*');
-  return user;
+  return await userRepository.update(id, updateData);
 }
 
 export async function deleteUser(id) {
-  return await db('users').where({ id }).del();
+  return await userRepository.deleteUser(id);
 }
 
 export async function findWithRoles(id) {
-  const user = await db('users')
-    .leftJoin('user_roles', 'users.id', 'user_roles.user_id')
-    .leftJoin('roles', 'user_roles.role_id', 'roles.id')
-    .where('users.id', id)
-    .select(
-      'users.*',
-      db.raw('json_agg(json_build_object(\'id\', roles.id, \'name\', roles.name, \'description\', roles.description)) as roles')
-    )
-    .groupBy('users.id')
-    .first();
-
-  if (user && user.roles) {
-    user.roles = user.roles.filter(role => role.id !== null);
-  }
-
-  return user;
+  return await userRepository.findWithRoles(id);
 }
 
 export async function findWithOrganization(id) {
-  const user = await db('users')
-    .leftJoin('organizations', 'users.id', 'organizations.user_id')
-    .where('users.id', id)
-    .select('users.*', 'organizations.*')
-    .first();
-
-  return user;
+  return await userRepository.findWithOrganization(id);
 }
 
 export async function list(filters = {}, pagination = {}) {
-  let query = db('users');
-
-  // Apply filters
-  if (filters.is_active !== undefined) {
-    query = query.where('is_active', filters.is_active);
-  }
-
-  if (filters.is_verified !== undefined) {
-    query = query.where('is_verified', filters.is_verified);
-  }
-
-  if (filters.auth_type) {
-    query = query.where('auth_type', filters.auth_type);
-  }
-
-  if (filters.search) {
-    query = query.where(function() {
-      this.where('email', 'ilike', `%${filters.search}%`)
-        .orWhere('first_name', 'ilike', `%${filters.search}%`)
-        .orWhere('last_name', 'ilike', `%${filters.search}%`);
-    });
-  }
-
-  // Apply pagination
-  if (pagination.limit) {
-    query = query.limit(pagination.limit);
-  }
-
-  if (pagination.offset) {
-    query = query.offset(pagination.offset);
-  }
-
-  // Apply sorting
-  const sortBy = pagination.sortBy || 'created_at';
-  const sortOrder = pagination.sortOrder || 'desc';
-  query = query.orderBy(sortBy, sortOrder);
-
-  return await query;
+  return await userRepository.list(filters, pagination);
 }
 
 export async function count(filters = {}) {
-  let query = db('users');
-
-  // Apply filters
-  if (filters.is_active !== undefined) {
-    query = query.where('is_active', filters.is_active);
-  }
-
-  if (filters.is_verified !== undefined) {
-    query = query.where('is_verified', filters.is_verified);
-  }
-
-  if (filters.auth_type) {
-    query = query.where('auth_type', filters.auth_type);
-  }
-
-  if (filters.search) {
-    query = query.where(function() {
-      this.where('email', 'ilike', `%${filters.search}%`)
-        .orWhere('first_name', 'ilike', `%${filters.search}%`)
-        .orWhere('last_name', 'ilike', `%${filters.search}%`);
-    });
-  }
-
-  const result = await query.count('* as total');
-  return parseInt(result[0].total);
+  return await userRepository.count(filters);
 } 
