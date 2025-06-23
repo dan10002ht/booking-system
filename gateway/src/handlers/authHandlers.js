@@ -1,5 +1,9 @@
 import grpcClients from '../grpc/clients.js';
-import { sendSuccessResponse, createHandler, createSimpleHandler } from '../utils/responseHandler.js';
+import {
+  sendSuccessResponse,
+  createHandler,
+  createSimpleHandler,
+} from '../utils/responseHandler.js';
 
 /**
  * Register a new user
@@ -31,7 +35,7 @@ const refreshUserToken = async (req, res) => {
 const logoutUser = async (req, res) => {
   await grpcClients.authService.logout({
     userId: req.user.id,
-    refreshToken: req.body.refreshToken
+    refreshToken: req.body.refreshToken,
   });
   sendSuccessResponse(res, 200, { message: 'Logout successful' }, req.correlationId);
 };
@@ -40,4 +44,4 @@ const logoutUser = async (req, res) => {
 export const registerHandler = createHandler(registerUser, 'auth', 'register');
 export const loginHandler = createHandler(loginUser, 'auth', 'login');
 export const refreshTokenHandler = createHandler(refreshUserToken, 'auth', 'refreshToken');
-export const logoutHandler = createSimpleHandler(logoutUser, 'auth', 'logout'); 
+export const logoutHandler = createSimpleHandler(logoutUser, 'auth', 'logout');
