@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 # 🤖 AI Agent Project Overview
 
 This file is intended for AI agents and automated tools to understand the structure, conventions, and integration points of the booking-system project.
