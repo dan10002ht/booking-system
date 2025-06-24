@@ -11,7 +11,7 @@ service AuthService {
   rpc Logout(LogoutRequest) returns (LogoutResponse);
   
   // Token verification
-  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc GetUserPermissions(GetUserPermissionsRequest) returns (GetUserPermissionsResponse);
   
   // User management
@@ -28,7 +28,7 @@ service AuthService {
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
   
   // Health check
-  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
 }
 
 // Request/Response messages for authentication
@@ -62,7 +62,7 @@ message OrganizationData {
 message RegisterResponse {
   bool success = 1;
   string message = 2;
-  UserData user = 3;
+  User user = 3;
 }
 
 message LoginRequest {
@@ -73,7 +73,7 @@ message LoginRequest {
 message LoginResponse {
   bool success = 1;
   string message = 2;
-  UserData user = 3;
+  User user = 3;
   string access_token = 4;
   string refresh_token = 5;
 }
@@ -111,14 +111,13 @@ message LogoutResponse {
 }
 
 // Token verification
-message VerifyTokenRequest {
+message ValidateTokenRequest {
   string token = 1;
 }
 
-message VerifyTokenResponse {
-  bool success = 1;
-  string message = 2;
-  UserData user = 3;
+message ValidateTokenResponse {
+  bool valid = 1;
+  User user = 2;
 }
 
 message GetUserPermissionsRequest {
@@ -147,7 +146,7 @@ message GetUserRequest {
 message GetUserResponse {
   bool success = 1;
   string message = 2;
-  UserData user = 3;
+  User user = 3;
 }
 
 message UpdateUserRequest {
@@ -166,7 +165,7 @@ message UpdateUserRequest {
 message UpdateUserResponse {
   bool success = 1;
   string message = 2;
-  UserData user = 3;
+  User user = 3;
 }
 
 message DeleteUserRequest {
@@ -220,17 +219,15 @@ message VerifyEmailResponse {
 }
 
 // Health check
-message HealthCheckRequest {}
+message HealthRequest {}
 
-message HealthCheckResponse {
-  bool success = 1;
-  string message = 2;
-  string timestamp = 3;
-  string service = 4;
+message HealthResponse {
+  string status = 1;
+  string timestamp = 2;
 }
 
 // Common data structures
-message UserData {
+message User {
   string id = 1;
   string email = 2;
   string first_name = 3;
@@ -248,10 +245,8 @@ message UserData {
   string phone_verified_at = 15;
   string last_login_at = 16;
   string auth_type = 17;
-  string created_at = 18;
-  string updated_at = 19;
-  repeated RoleData roles = 20;
-  OrganizationData organization = 21;
+  string role = 18;
+  repeated string permissions = 19;
 }
 
 message RoleData {

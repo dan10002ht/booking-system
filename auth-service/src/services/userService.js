@@ -1,5 +1,4 @@
 import * as userRepository from '../repositories/userRepository.js';
-import * as organizationRepository from '../repositories/organizationRepository.js';
 
 export async function findById(id) {
   return await userRepository.findById(id);

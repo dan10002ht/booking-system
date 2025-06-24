@@ -1,365 +1,439 @@
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import config from '../config/index.js';
-import * as userRepository from '../repositories/userRepository.js';
-import * as organizationRepository from '../repositories/organizationRepository.js';
-import * as oauthAccountRepository from '../repositories/oauthAccountRepository.js';
-import * as roleRepository from '../repositories/roleRepository.js';
-import * as permissionRepository from '../repositories/permissionRepository.js';
-import * as tokenRepository from '../repositories/tokenRepository.js';
-import db from '../config/database.js';
+import { v4 as uuidv4 } from 'uuid';
+import UserRepository from '../repositories/userRepository.js';
+import { checkDatabaseHealth } from '../config/databaseConfig.js';
+import { generateTokens, verifyAccessToken, verifyRefreshToken } from '../utils/tokenUtils.js';
+import { validateRegistration, validatePasswordChange } from '../utils/validations.js';
+import { sanitizeUserInput, sanitizeUserForResponse, sanitizeSessionData } from '../utils/sanitizers.js';
 
-// Email/Password Authentication
-export async function register(userData, roleName = 'individual') {
-  const transaction = await db.transaction();
+// Initialize user repository (singleton pattern)
+const userRepository = new UserRepository();
 
+// Configuration constants
+
+// ========== REGISTRATION & LOGIN ==========
+
+/**
+ * Register new user
+ */
+export async function register(userData) {
   try {
-    // Check if user already exists
-    const existingUser = await userRepository.findByEmail(userData.email);
-    if (existingUser) {
-      throw new Error('User already exists with this email');
+    const validation = validateRegistration(userData);
+    if (!validation.isValid) {
+      throw new Error(validation.errors.join(', '));
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const sanitizedData = sanitizeUserInput(userData);
 
-    // Create user
-    const user = await userRepository.create({
-      ...userData,
-      password_hash: hashedPassword,
-      auth_type: 'email',
+    const existingUser = await userRepository.findByEmail(sanitizedData.email);
+    if (existingUser) {
+      throw new Error('Email is already in use');
+    }
+
+    if (sanitizedData.username) {
+      const existingUsername = await userRepository.findByUsername(sanitizedData.username);
+      if (existingUsername) {
+        throw new Error('Username is already in use');
+      }
+    }
+
+    const newUser = await userRepository.createUser({
+      ...sanitizedData,
+      status: 'active',
+      role: sanitizedData.role || 'user'
     });
 
-    // Assign role
-    const role = await roleRepository.findByName(roleName);
-    if (!role) {
-      throw new Error(`Role '${roleName}' not found`);
-    }
+    const tokens = generateTokens(newUser.id, {
+      email: newUser.email,
+      role: newUser.role
+    });
 
-    await roleRepository.assignToUser(user.id, role.id);
+    await userRepository.createUserSession(newUser.id, {
+      session_id: uuidv4(),
+      refresh_token: tokens.refreshToken,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      ip_address: userData.ip_address,
+      user_agent: userData.user_agent
+    });
 
-    // Create organization if role is organization
-    if (roleName === 'organization' && userData.organization) {
-      await organizationRepository.create({
-        user_id: user.id,
-        ...userData.organization,
-      });
-    }
-
-    await transaction.commit();
-
-    // Return user without password
-    const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return {
+      user: sanitizeUserForResponse(newUser),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken
+    };
   } catch (error) {
-    await transaction.rollback();
-    throw error;
+    throw new Error(`Registration failed: ${error.message}`);
   }
 }
 
-export async function login(email, password) {
-  // Find user
-  const user = await userRepository.findByEmail(email);
-  if (!user) {
-    throw new Error('Invalid credentials');
-  }
-
-  // Check if user is active
-  if (!user.is_active) {
-    throw new Error('Account is deactivated');
-  }
-
-  // Verify password
-  if (user.auth_type === 'email') {
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    if (!isValidPassword) {
-      throw new Error('Invalid credentials');
-    }
-  } else {
-    throw new Error('This account uses OAuth authentication');
-  }
-
-  // Update last login
-  await userRepository.update(user.id, { last_login_at: new Date() });
-
-  // Generate tokens
-  const tokens = await generateTokens(user);
-
-  // Return user and tokens
-  const { password_hash, ...userWithoutPassword } = user;
-  return {
-    user: userWithoutPassword,
-    ...tokens,
-  };
-}
-
-// OAuth Authentication
-export async function oauthLogin(provider, providerData) {
-  const transaction = await db.transaction();
-
+/**
+ * User login
+ */
+export async function login(email, password, sessionData = {}) {
   try {
-    // Check if OAuth account exists
-    let oauthAccount = await oauthAccountRepository.findByProvider(provider, providerData.id);
+    // Sanitize session data
+    const sanitizedSessionData = sanitizeSessionData(sessionData);
 
-    if (oauthAccount) {
-      // Update OAuth account
-      await oauthAccountRepository.update(oauthAccount.id, {
-        access_token: providerData.access_token,
-        refresh_token: providerData.refresh_token,
-        expires_at: providerData.expires_at,
-      });
-
-      // Get user
-      const user = await userRepository.findById(oauthAccount.user_id);
-      if (!user.is_active) {
-        throw new Error('Account is deactivated');
-      }
-
-      // Update last login
-      await userRepository.update(user.id, { last_login_at: new Date() });
-
-      // Generate tokens
-      const tokens = await generateTokens(user);
-
-      await transaction.commit();
-
-      const { password_hash, ...userWithoutPassword } = user;
-      return {
-        user: userWithoutPassword,
-        ...tokens,
-      };
-    } else {
-      // Create new user and OAuth account
-      const user = await userRepository.create({
-        email: providerData.email,
-        first_name: providerData.first_name,
-        last_name: providerData.last_name,
-        profile_picture_url: providerData.picture,
-        is_verified: true,
-        email_verified_at: new Date(),
-        auth_type: 'oauth',
-      });
-
-      // Create OAuth account
-      await oauthAccountRepository.create({
-        user_id: user.id,
-        provider,
-        provider_user_id: providerData.id,
-        access_token: providerData.access_token,
-        refresh_token: providerData.refresh_token,
-        expires_at: providerData.expires_at,
-      });
-
-      // Assign default role (individual)
-      const role = await roleRepository.findByName('individual');
-      await roleRepository.assignToUser(user.id, role.id);
-
-      await transaction.commit();
-
-      // Generate tokens
-      const tokens = await generateTokens(user);
-
-      const { password_hash, ...userWithoutPassword } = user;
-      return {
-        user: userWithoutPassword,
-        ...tokens,
-      };
+    // Verify credentials
+    const user = await userRepository.verifyCredentials(email, password);
+    if (!user) {
+      throw new Error('Invalid email or password');
     }
+
+    // Check user status
+    if (user.status !== 'active') {
+      throw new Error('Account is locked or not activated');
+    }
+
+    // Update last login
+    await userRepository.updateLastLogin(user.id);
+
+    // Generate tokens
+    const tokens = await generateTokens(user.id, {
+      email: user.email,
+      role: user.role
+    });
+
+    // Create session
+    await userRepository.createUserSession(user.id, {
+      session_id: uuidv4(),
+      refresh_token: tokens.refreshToken,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      ip_address: sanitizedSessionData.ip_address,
+      user_agent: sanitizedSessionData.user_agent
+    });
+
+    return {
+      user: sanitizeUserForResponse(user),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken
+    };
   } catch (error) {
-    await transaction.rollback();
-    throw error;
+    throw new Error(`Login failed: ${error.message}`);
   }
 }
 
-// Token Management
-export async function generateTokens(user) {
-  const payload = {
-    userId: user.id,
+/**
+ * User logout
+ */
+export async function logout(userId, sessionId = null) {
+  try {
+    if (sessionId) {
+      // Delete specific session
+      await userRepository.deleteUserSession(sessionId);
+    } else {
+      // Delete all user sessions
+      await userRepository.deleteAllUserSessions(userId);
+    }
+
+    return { message: 'Logout successful' };
+  } catch (error) {
+    throw new Error(`Logout failed: ${error.message}`);
+  }
+}
+
+// ========== TOKEN MANAGEMENT ==========
+
+/**
+ * Generate access token and refresh token
+ */
+export async function generateTokensForUser(userId) {
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    throw new Error('User does not exist');
+  }
+
+  return await generateTokens(userId, {
     email: user.email,
-  };
-
-  const accessToken = jwt.sign(payload, config.jwt.secret, {
-    expiresIn: config.jwt.expiresIn,
+    role: user.role
   });
-
-  const refreshToken = crypto.randomBytes(64).toString('hex');
-  const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
-
-  // Store refresh token
-  await tokenRepository.createRefreshToken({
-    user_id: user.id,
-    token_hash: refreshTokenHash,
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-  });
-
-  return {
-    accessToken,
-    refreshToken,
-  };
 }
 
+/**
+ * Refresh access token
+ */
 export async function refreshToken(refreshToken) {
-  // Find refresh token
-  const refreshTokens = await tokenRepository.findValidRefreshTokens();
+  try {
+    // Verify refresh token
+    const decoded = verifyRefreshToken(refreshToken);
 
-  let validToken = null;
-  for (const token of refreshTokens) {
-    const isValid = await bcrypt.compare(refreshToken, token.token_hash);
-    if (isValid) {
-      validToken = token;
-      break;
+    // Check if refresh token exists in session
+    const sessions = await userRepository.getUserSessions(decoded.userId);
+    const validSession = sessions.find(session => session.refresh_token === refreshToken);
+    
+    if (!validSession) {
+      throw new Error('Invalid refresh token');
     }
-  }
 
-  if (!validToken) {
-    throw new Error('Invalid refresh token');
-  }
+    // Generate new tokens
+    const tokens = await generateTokensForUser(decoded.userId);
 
-  // Get user
-  const user = await userRepository.findById(validToken.user_id);
-  if (!user || !user.is_active) {
-    throw new Error('User not found or inactive');
-  }
+    // Update session with new refresh token
+    await userRepository.updateUserSession(validSession.id, {
+      refresh_token: tokens.refreshToken,
+      updated_at: new Date()
+    });
 
-  // Revoke old refresh token
-  await tokenRepository.revokeRefreshToken(validToken.id);
-
-  // Generate new tokens
-  return await generateTokens(user);
-}
-
-export async function logout(refreshToken) {
-  // Find and revoke refresh token
-  const refreshTokens = await tokenRepository.findValidRefreshTokens();
-
-  for (const token of refreshTokens) {
-    const isValid = await bcrypt.compare(refreshToken, token.token_hash);
-    if (isValid) {
-      await tokenRepository.revokeRefreshToken(token.id);
-      break;
-    }
+    return tokens;
+  } catch (error) {
+    throw new Error(`Refresh token failed: ${error.message}`);
   }
 }
 
-// Password Reset
-export async function forgotPassword(email) {
-  const user = await userRepository.findByEmail(email);
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  // Generate reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const resetTokenHash = await bcrypt.hash(resetToken, 10);
-
-  // Store reset token
-  await tokenRepository.createPasswordResetToken({
-    user_id: user.id,
-    token_hash: resetTokenHash,
-    expires_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-  });
-
-  return resetToken;
-}
-
-export async function resetPassword(token, newPassword) {
-  // Find reset token
-  const resetTokens = await tokenRepository.findValidPasswordResetTokens();
-
-  let validToken = null;
-  for (const resetToken of resetTokens) {
-    const isValid = await bcrypt.compare(token, resetToken.token_hash);
-    if (isValid) {
-      validToken = resetToken;
-      break;
-    }
-  }
-
-  if (!validToken) {
-    throw new Error('Invalid or expired reset token');
-  }
-
-  // Hash new password
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  // Update user password
-  await userRepository.update(validToken.user_id, {
-    password_hash: hashedPassword,
-  });
-
-  // Mark token as used
-  await tokenRepository.markPasswordResetTokenAsUsed(validToken.id);
-}
-
-// Email Verification
-export async function sendVerificationEmail(email) {
-  const user = await userRepository.findByEmail(email);
-  if (!user) {
-    throw new Error('User not found');
-  }
-
-  if (user.email_verified_at) {
-    throw new Error('Email already verified');
-  }
-
-  // Generate verification token
-  const verificationToken = crypto.randomBytes(32).toString('hex');
-  const verificationTokenHash = await bcrypt.hash(verificationToken, 10);
-
-  // Store verification token
-  await tokenRepository.createEmailVerificationToken({
-    user_id: user.id,
-    token_hash: verificationTokenHash,
-    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-  });
-
-  return verificationToken;
-}
-
-export async function verifyEmail(token) {
-  // Find verification token
-  const verificationTokens = await tokenRepository.findValidEmailVerificationTokens();
-
-  let validToken = null;
-  for (const verificationToken of verificationTokens) {
-    const isValid = await bcrypt.compare(token, verificationToken.token_hash);
-    if (isValid) {
-      validToken = verificationToken;
-      break;
-    }
-  }
-
-  if (!validToken) {
-    throw new Error('Invalid or expired verification token');
-  }
-
-  // Update user
-  await userRepository.update(validToken.user_id, {
-    is_verified: true,
-    email_verified_at: new Date(),
-  });
-
-  // Mark token as used
-  await tokenRepository.markEmailVerificationTokenAsUsed(validToken.id);
-}
-
-// Utility methods
+/**
+ * Verify access token
+ */
 export async function verifyToken(token) {
   try {
-    const decoded = jwt.verify(token, config.jwt.secret);
-    const user = await userRepository.findById(decoded.userId);
+    const decoded = verifyAccessToken(token);
     
-    if (!user || !user.is_active) {
-      return null;
+    // Check if user exists and is active
+    const user = await userRepository.findById(decoded.userId);
+    if (!user || user.status !== 'active') {
+      throw new Error('Invalid user');
     }
 
-    return user;
+    return {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      user: sanitizeUserForResponse(user)
+    };
   } catch (error) {
-    return null;
+    throw new Error(`Invalid token: ${error.message}`);
   }
 }
 
-export async function getUserPermissions(userId) {
-  return await permissionRepository.getUserPermissions(userId);
+// ========== PASSWORD MANAGEMENT ==========
+
+/**
+ * Change password
+ */
+export async function changePassword(userId, currentPassword, newPassword) {
+  try {
+    // Validate password change
+    const validation = validatePasswordChange(currentPassword, newPassword);
+    if (!validation.isValid) {
+      throw new Error(validation.errors.join(', '));
+    }
+
+    // Verify current password
+    const isValidPassword = await userRepository.verifyPassword(userId, currentPassword);
+    if (!isValidPassword) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Update password
+    await userRepository.updatePassword(userId, newPassword);
+
+    // Delete all sessions to force re-login
+    await userRepository.deleteAllUserSessions(userId);
+
+    return { message: 'Password changed successfully' };
+  } catch (error) {
+    throw new Error(`Password change failed: ${error.message}`);
+  }
+}
+
+/**
+ * Reset password (for admin)
+ */
+export async function resetPassword(userId, newPassword) {
+  try {
+    await userRepository.updatePassword(userId, newPassword);
+    await userRepository.deleteAllUserSessions(userId);
+    
+    return { message: 'Password reset successful' };
+  } catch (error) {
+    throw new Error(`Password reset failed: ${error.message}`);
+  }
+}
+
+// ========== USER MANAGEMENT ==========
+
+/**
+ * Get user profile
+ */
+export async function getUserProfile(userId) {
+  try {
+    const user = await userRepository.getUserProfile(userId);
+    if (!user) {
+      throw new Error('User does not exist');
+    }
+
+    return sanitizeUserForResponse(user);
+  } catch (error) {
+    throw new Error(`Failed to get user profile: ${error.message}`);
+  }
+}
+
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(userId, updateData) {
+  try {
+    const sanitizedData = sanitizeUserInput(updateData);
+    const updatedUser = await userRepository.updateUser(userId, sanitizedData);
+    return sanitizeUserForResponse(updatedUser);
+  } catch (error) {
+    throw new Error(`Failed to update user profile: ${error.message}`);
+  }
+}
+
+/**
+ * Get user sessions
+ */
+export async function getUserSessions(userId) {
+  try {
+    return await userRepository.getUserSessions(userId);
+  } catch (error) {
+    throw new Error(`Failed to get sessions: ${error.message}`);
+  }
+}
+
+// ========== ADMIN OPERATIONS ==========
+
+/**
+ * Get users list (with pagination)
+ */
+export async function getUsers(page = 1, pageSize = 20, filters = {}) {
+  try {
+    const conditions = {};
+    
+    if (filters.status) {
+      conditions.status = filters.status;
+    }
+    
+    if (filters.role) {
+      conditions.role = filters.role;
+    }
+
+    const options = {
+      orderBy: filters.orderBy || 'created_at',
+      orderDirection: filters.orderDirection || 'desc'
+    };
+
+    return await userRepository.paginate(page, pageSize, conditions, options);
+  } catch (error) {
+    throw new Error(`Failed to get users list: ${error.message}`);
+  }
+}
+
+/**
+ * Search users
+ */
+export async function searchUsers(searchTerm, page = 1, pageSize = 20) {
+  try {
+    const offset = (page - 1) * pageSize;
+    const users = await userRepository.searchUsers(searchTerm, {
+      limit: pageSize,
+      offset
+    });
+
+    const total = await userRepository.count({
+      // Count with similar search conditions
+    });
+
+    return {
+      data: users.map(user => sanitizeUserForResponse(user)),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        hasNext: page < Math.ceil(total / pageSize),
+        hasPrev: page > 1
+      }
+    };
+  } catch (error) {
+    throw new Error(`Search users failed: ${error.message}`);
+  }
+}
+
+/**
+ * Update user status (admin)
+ */
+export async function updateUserStatus(userId, status) {
+  try {
+    const updatedUser = await userRepository.updateUserStatus(userId, status);
+    
+    // If user is locked, delete all sessions
+    if (status === 'suspended' || status === 'deleted') {
+      await userRepository.deleteAllUserSessions(userId);
+    }
+
+    return sanitizeUserForResponse(updatedUser);
+  } catch (error) {
+    throw new Error(`Failed to update status: ${error.message}`);
+  }
+}
+
+// ========== HEALTH CHECK ==========
+
+/**
+ * System health check
+ */
+export async function healthCheck() {
+  try {
+    const dbHealth = await checkDatabaseHealth();
+    
+    return {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      database: dbHealth,
+      service: 'auth-service'
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      service: 'auth-service'
+    };
+  }
+}
+
+// ========== UTILITY FUNCTIONS ==========
+
+/**
+ * Validate email format
+ */
+export function validateEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Validate password strength
+ */
+export function validatePassword(password) {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  return {
+    isValid: password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar,
+    errors: {
+      length: password.length < minLength ? `Password must be at least ${minLength} characters` : null,
+      uppercase: !hasUpperCase ? 'Password must contain at least 1 uppercase letter' : null,
+      lowercase: !hasLowerCase ? 'Password must contain at least 1 lowercase letter' : null,
+      numbers: !hasNumbers ? 'Password must contain at least 1 number' : null,
+      specialChar: !hasSpecialChar ? 'Password must contain at least 1 special character' : null
+    }
+  };
+}
+
+/**
+ * Sanitize user input
+ */
+export function sanitizeUserInput(input) {
+  return {
+    ...input,
+    email: input.email?.toLowerCase().trim(),
+    username: input.username?.toLowerCase().trim(),
+    first_name: input.first_name?.trim(),
+    last_name: input.last_name?.trim(),
+    phone: input.phone?.trim()
+  };
 } 

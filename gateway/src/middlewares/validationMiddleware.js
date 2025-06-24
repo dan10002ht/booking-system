@@ -4,15 +4,14 @@ import { body } from 'express-validator';
  * Validation middleware for user registration
  */
 export const validateRegistration = [
-  body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email address')
-    .normalizeEmail(),
+  body('email').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    .withMessage(
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
   body('firstName')
     .notEmpty()
     .withMessage('First name is required')
@@ -24,20 +23,15 @@ export const validateRegistration = [
     .withMessage('Last name is required')
     .trim()
     .isLength({ min: 2, max: 50 })
-    .withMessage('Last name must be between 2 and 50 characters')
+    .withMessage('Last name must be between 2 and 50 characters'),
 ];
 
 /**
  * Validation middleware for user login
  */
 export const validateLogin = [
-  body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required')
+  body('email').isEmail().withMessage('Please provide a valid email address').normalizeEmail(),
+  body('password').notEmpty().withMessage('Password is required'),
 ];
 
 /**
@@ -48,7 +42,7 @@ export const validateRefreshToken = [
     .notEmpty()
     .withMessage('Refresh token is required')
     .isJWT()
-    .withMessage('Invalid refresh token format')
+    .withMessage('Invalid refresh token format'),
 ];
 
 /**
@@ -65,36 +59,32 @@ export const validateProfileUpdate = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Last name must be between 2 and 50 characters'),
-  body('phone')
-    .optional()
-    .isMobilePhone()
-    .withMessage('Please provide a valid phone number'),
+  body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
   body('address')
     .optional()
     .trim()
     .isLength({ max: 200 })
-    .withMessage('Address must not exceed 200 characters')
+    .withMessage('Address must not exceed 200 characters'),
 ];
 
 /**
  * Validation middleware for password change
  */
 export const validatePasswordChange = [
-  body('currentPassword')
-    .notEmpty()
-    .withMessage('Current password is required'),
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
   body('newPassword')
     .isLength({ min: 8 })
     .withMessage('New password must be at least 8 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('New password must contain at least one uppercase letter, one lowercase letter, and one number'),
-  body('confirmPassword')
-    .custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error('Password confirmation does not match password');
-      }
-      return true;
-    })
+    .withMessage(
+      'New password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.newPassword) {
+      throw new Error('Password confirmation does not match password');
+    }
+    return true;
+  }),
 ];
 
 /**
@@ -109,9 +99,7 @@ export const validateBooking = [
   body('ticketQuantity')
     .isInt({ min: 1, max: 10 })
     .withMessage('Ticket quantity must be between 1 and 10'),
-  body('bookingDate')
-    .isISO8601()
-    .withMessage('Invalid booking date format')
+  body('bookingDate').isISO8601().withMessage('Invalid booking date format'),
 ];
 
 /**
@@ -126,9 +114,7 @@ export const validatePayment = [
   body('paymentMethod')
     .isIn(['credit_card', 'debit_card', 'paypal', 'bank_transfer'])
     .withMessage('Invalid payment method'),
-  body('amount')
-    .isFloat({ min: 0.01 })
-    .withMessage('Amount must be greater than 0')
+  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
 ];
 
 /**
@@ -147,19 +133,10 @@ export const validateEvent = [
     .trim()
     .isLength({ min: 10, max: 1000 })
     .withMessage('Event description must be between 10 and 1000 characters'),
-  body('date')
-    .isISO8601()
-    .withMessage('Invalid event date format'),
-  body('venue')
-    .notEmpty()
-    .withMessage('Event venue is required')
-    .trim(),
-  body('capacity')
-    .isInt({ min: 1 })
-    .withMessage('Event capacity must be at least 1'),
-  body('price')
-    .isFloat({ min: 0 })
-    .withMessage('Event price must be non-negative')
+  body('date').isISO8601().withMessage('Invalid event date format'),
+  body('venue').notEmpty().withMessage('Event venue is required').trim(),
+  body('capacity').isInt({ min: 1 }).withMessage('Event capacity must be at least 1'),
+  body('price').isFloat({ min: 0 }).withMessage('Event price must be non-negative'),
 ];
 
 /**
@@ -176,18 +153,9 @@ export const validateUserProfileUpdate = [
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Last name must be between 2 and 50 characters'),
-  body('phone')
-    .optional()
-    .isMobilePhone()
-    .withMessage('Please provide a valid phone number'),
-  body('dateOfBirth')
-    .optional()
-    .isISO8601()
-    .withMessage('Invalid date of birth format'),
-  body('address')
-    .optional()
-    .isObject()
-    .withMessage('Address must be an object')
+  body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
+  body('dateOfBirth').optional().isISO8601().withMessage('Invalid date of birth format'),
+  body('address').optional().isObject().withMessage('Address must be an object'),
 ];
 
 /**
@@ -223,7 +191,7 @@ export const validateUserAddress = [
     .withMessage('Country is required')
     .trim()
     .isLength({ max: 100 })
-    .withMessage('Country must not exceed 100 characters')
+    .withMessage('Country must not exceed 100 characters'),
 ];
 
 /**
@@ -254,5 +222,5 @@ export const validateUserAddressUpdate = [
     .optional()
     .trim()
     .isLength({ max: 100 })
-    .withMessage('Country must not exceed 100 characters')
-]; 
+    .withMessage('Country must not exceed 100 characters'),
+];

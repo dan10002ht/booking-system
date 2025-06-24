@@ -37,6 +37,12 @@ export async function up(knex) {
 
   // Permissions table indexes
   await knex.raw('CREATE INDEX idx_permissions_resource_action ON permissions(resource, action)');
+
+  // User roles table indexes
+  await knex.raw('CREATE INDEX idx_user_roles_user_id ON user_roles(user_id)');
+
+  // Role permissions table indexes
+  await knex.raw('CREATE INDEX idx_role_permissions_role_id ON role_permissions(role_id)');
 }
 
 /**
@@ -45,6 +51,8 @@ export async function up(knex) {
  */
 export async function down(knex) {
   // Drop indexes in reverse order
+  await knex.raw('DROP INDEX IF EXISTS idx_role_permissions_role_id');
+  await knex.raw('DROP INDEX IF EXISTS idx_user_roles_user_id');
   await knex.raw('DROP INDEX IF EXISTS idx_permissions_resource_action');
   await knex.raw('DROP INDEX IF EXISTS idx_audit_logs_action');
   await knex.raw('DROP INDEX IF EXISTS idx_audit_logs_created_at');

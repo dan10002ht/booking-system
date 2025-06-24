@@ -6,11 +6,19 @@ The Auth Service manages user authentication, authorization, and session managem
 
 ## Database Schema
 
+### Hybrid ID Approach
+
+The database uses a **hybrid approach** for optimal performance and security:
+
+- **`internal_id`** (BIGSERIAL): Auto-incrementing primary key for internal operations and performance
+- **`public_id`** (UUID): Globally unique identifier for API exposure and security
+
 ### Users Table
 
 ```sql
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    internal_id BIGSERIAL PRIMARY KEY,                    -- Internal ID for performance
+    public_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(), -- Public ID for API
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255), -- NULL for OAuth users
     first_name VARCHAR(100) NOT NULL,
@@ -39,8 +47,9 @@ CREATE TABLE users (
 
 ```sql
 CREATE TABLE organizations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    internal_id BIGSERIAL PRIMARY KEY,                    -- Internal ID for performance
+    public_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(), -- Public ID for API
+    user_id UUID NOT NULL REFERENCES users(public_id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     website_url TEXT,
@@ -62,120 +71,63 @@ CREATE TABLE organizations (
 );
 ```
 
-### OAuth Accounts Table
+### Organization Roles Table
 
 ```sql
-CREATE TABLE oauth_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    provider VARCHAR(50) NOT NULL, -- 'google', 'facebook', etc.
-    provider_user_id VARCHAR(255) NOT NULL,
-    access_token TEXT,
-    refresh_token TEXT,
-    expires_at TIMESTAMP,
+CREATE TABLE organization_roles (
+    internal_id BIGSERIAL PRIMARY KEY,                    -- Internal ID for performance
+    public_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(), -- Public ID for API
+    organization_id UUID NOT NULL REFERENCES organizations(public_id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL, -- 'admin', 'manager', 'member', 'viewer'
+    description TEXT,
+    permissions JSONB, -- Organization-specific permissions
+    hierarchy_level INTEGER DEFAULT 0, -- 0=highest, 100=lowest
+    is_default BOOLEAN DEFAULT false, -- Default role for new members
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(provider, provider_user_id),
-    UNIQUE(user_id, provider)
+    UNIQUE(organization_id, name)
 );
 ```
 
-### User Roles Table
+### Organization Members Table
 
 ```sql
-CREATE TABLE user_roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+CREATE TABLE organization_members (
+    internal_id BIGSERIAL PRIMARY KEY,                    -- Internal ID for performance
+    public_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(), -- Public ID for API
+    organization_id UUID NOT NULL REFERENCES organizations(public_id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(public_id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES organization_roles(public_id) ON DELETE CASCADE,
+    status VARCHAR(20) DEFAULT 'active', -- 'active', 'pending', 'suspended'
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active_at TIMESTAMP,
+    invited_by UUID REFERENCES users(public_id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, role_id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(organization_id, user_id)
 );
 ```
 
-### Roles Table
+### Internal Tables (Performance Critical)
+
+For internal tables that don't need API exposure, we use auto-increment IDs for maximum performance:
 
 ```sql
-CREATE TABLE roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
-    permissions JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Permissions Table
-
-```sql
-CREATE TABLE permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) UNIQUE NOT NULL,
-    description TEXT,
-    resource VARCHAR(100) NOT NULL,
-    action VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Role Permissions Table
-
-```sql
-CREATE TABLE role_permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(role_id, permission_id)
-);
-```
-
-### Refresh Tokens Table
-
-```sql
+-- Refresh Tokens (Internal only)
 CREATE TABLE refresh_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,                             -- Auto increment for performance
+    user_id UUID NOT NULL REFERENCES users(public_id) ON DELETE CASCADE,
     token_hash VARCHAR(255) UNIQUE NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     is_revoked BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-```
 
-### Password Reset Tokens Table
-
-```sql
-CREATE TABLE password_reset_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    is_used BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Email Verification Tokens Table
-
-```sql
-CREATE TABLE email_verification_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token_hash VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    is_used BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### User Sessions Table
-
-```sql
+-- User Sessions (Internal only)
 CREATE TABLE user_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id BIGSERIAL PRIMARY KEY,                             -- Auto increment for performance
+    user_id UUID NOT NULL REFERENCES users(public_id) ON DELETE CASCADE,
     session_id VARCHAR(255) UNIQUE NOT NULL,
     ip_address INET,
     user_agent TEXT,
@@ -184,14 +136,11 @@ CREATE TABLE user_sessions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-```
 
-### Audit Logs Table
-
-```sql
+-- Audit Logs (Internal only)
 CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    id BIGSERIAL PRIMARY KEY,                             -- Auto increment for performance
+    user_id UUID REFERENCES users(public_id) ON DELETE SET NULL,
     action VARCHAR(100) NOT NULL,
     resource_type VARCHAR(100),
     resource_id UUID,
@@ -202,6 +151,27 @@ CREATE TABLE audit_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+## Benefits of Hybrid Approach
+
+### Performance Benefits:
+- **Internal operations** use fast auto-increment IDs
+- **JOIN operations** are optimized with sequential IDs
+- **Index size** is smaller for internal operations
+- **Cache-friendly** sequential access patterns
+
+### Security Benefits:
+- **API exposure** uses unpredictable UUIDs
+- **Enumeration attacks** are prevented
+- **Global uniqueness** across distributed systems
+- **No information leakage** through predictable IDs
+
+### Usage Guidelines:
+
+1. **API Endpoints**: Always use `public_id` for external communication
+2. **Internal Queries**: Use `internal_id` for performance-critical operations
+3. **Foreign Keys**: Reference `public_id` for data integrity
+4. **Indexes**: Create indexes on both `internal_id` and `public_id` as needed
 
 ## Entity Relationship Diagram (ERD)
 
@@ -226,6 +196,8 @@ Users (1) -------- (1) Organizations
   |                                                |
   |                                                |
 Roles (1) -------- (N) RolePermissions (N) -------- (1) Permissions
+
+Organizations (1) -------- (N) OrganizationRoles (N) -------- (1) OrganizationMembers (N) -------- (1) Users
 ```
 
 ## Key Relationships
@@ -237,21 +209,25 @@ Roles (1) -------- (N) RolePermissions (N) -------- (1) Permissions
 5. **Users to Tokens**: One-to-many relationships for various token types
 6. **Users to Sessions**: One-to-many relationship for session management
 7. **Users to Audit Logs**: One-to-many relationship for activity tracking
+8. **Organizations to Roles**: One-to-many relationship for organization-specific roles
+9. **Organizations to Members**: Many-to-many relationship through `organization_members` table
 
 ## Indexes
 
 ```sql
--- Performance indexes
+-- Performance indexes for hybrid approach
+CREATE INDEX idx_users_public_id ON users(public_id);
 CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_is_active ON users(is_active);
 CREATE INDEX idx_users_is_verified ON users(is_verified);
 CREATE INDEX idx_users_auth_type ON users(auth_type);
 
+CREATE INDEX idx_organizations_public_id ON organizations(public_id);
 CREATE INDEX idx_organizations_user_id ON organizations(user_id);
 CREATE INDEX idx_organizations_name ON organizations(name);
 CREATE INDEX idx_organizations_is_verified ON organizations(is_verified);
 
+CREATE INDEX idx_oauth_accounts_public_id ON oauth_accounts(public_id);
 CREATE INDEX idx_oauth_accounts_user_id ON oauth_accounts(user_id);
 CREATE INDEX idx_oauth_accounts_provider ON oauth_accounts(provider);
 CREATE INDEX idx_oauth_accounts_provider_user_id ON oauth_accounts(provider, provider_user_id);
@@ -269,6 +245,19 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 
 CREATE INDEX idx_permissions_resource_action ON permissions(resource, action);
+
+-- Organization indexes
+CREATE INDEX idx_organization_roles_public_id ON organization_roles(public_id);
+CREATE INDEX idx_organization_roles_org_id ON organization_roles(organization_id);
+CREATE INDEX idx_organization_roles_hierarchy ON organization_roles(hierarchy_level);
+CREATE INDEX idx_organization_members_public_id ON organization_members(public_id);
+CREATE INDEX idx_organization_members_org_id ON organization_members(organization_id);
+CREATE INDEX idx_organization_members_user_id ON organization_members(user_id);
+CREATE INDEX idx_organization_members_status ON organization_members(status);
+CREATE INDEX idx_organization_invitations_public_id ON organization_invitations(public_id);
+CREATE INDEX idx_organization_invitations_org_id ON organization_invitations(organization_id);
+CREATE INDEX idx_organization_invitations_email ON organization_invitations(email);
+CREATE INDEX idx_organization_invitations_expires ON organization_invitations(expires_at);
 ```
 
 ## Default Data
@@ -276,45 +265,45 @@ CREATE INDEX idx_permissions_resource_action ON permissions(resource, action);
 ### Default Roles
 
 ```sql
-INSERT INTO roles (name, description) VALUES
-('admin', 'System administrator with full access'),
-('organization', 'Event organization with event management permissions'),
-('individual', 'Individual user with booking permissions');
+INSERT INTO roles (public_id, name, description) VALUES
+(gen_random_uuid(), 'admin', 'System administrator with full access'),
+(gen_random_uuid(), 'organization', 'Event organization with event management permissions'),
+(gen_random_uuid(), 'individual', 'Individual user with booking permissions');
 ```
 
 ### Default Permissions
 
 ```sql
-INSERT INTO permissions (name, description, resource, action) VALUES
+INSERT INTO permissions (public_id, name, description, resource, action) VALUES
 -- User management
-('users.read', 'Read user information', 'users', 'read'),
-('users.create', 'Create new users', 'users', 'create'),
-('users.update', 'Update user information', 'users', 'update'),
-('users.delete', 'Delete users', 'users', 'delete'),
+(gen_random_uuid(), 'users.read', 'Read user information', 'users', 'read'),
+(gen_random_uuid(), 'users.create', 'Create new users', 'users', 'create'),
+(gen_random_uuid(), 'users.update', 'Update user information', 'users', 'update'),
+(gen_random_uuid(), 'users.delete', 'Delete users', 'users', 'delete'),
 
 -- Organization management
-('organizations.read', 'Read organization information', 'organizations', 'read'),
-('organizations.create', 'Create new organizations', 'organizations', 'create'),
-('organizations.update', 'Update organization information', 'organizations', 'update'),
-('organizations.delete', 'Delete organizations', 'organizations', 'delete'),
+(gen_random_uuid(), 'organizations.read', 'Read organization information', 'organizations', 'read'),
+(gen_random_uuid(), 'organizations.create', 'Create new organizations', 'organizations', 'create'),
+(gen_random_uuid(), 'organizations.update', 'Update organization information', 'organizations', 'update'),
+(gen_random_uuid(), 'organizations.delete', 'Delete organizations', 'organizations', 'delete'),
 
 -- Booking management
-('bookings.read', 'Read booking information', 'bookings', 'read'),
-('bookings.create', 'Create new bookings', 'bookings', 'create'),
-('bookings.update', 'Update booking information', 'bookings', 'update'),
-('bookings.delete', 'Delete bookings', 'bookings', 'delete'),
+(gen_random_uuid(), 'bookings.read', 'Read booking information', 'bookings', 'read'),
+(gen_random_uuid(), 'bookings.create', 'Create new bookings', 'bookings', 'create'),
+(gen_random_uuid(), 'bookings.update', 'Update booking information', 'bookings', 'update'),
+(gen_random_uuid(), 'bookings.delete', 'Delete bookings', 'bookings', 'delete'),
 
 -- Event management
-('events.read', 'Read event information', 'events', 'read'),
-('events.create', 'Create new events', 'events', 'create'),
-('events.update', 'Update event information', 'events', 'update'),
-('events.delete', 'Delete events', 'events', 'delete'),
+(gen_random_uuid(), 'events.read', 'Read event information', 'events', 'read'),
+(gen_random_uuid(), 'events.create', 'Create new events', 'events', 'create'),
+(gen_random_uuid(), 'events.update', 'Update event information', 'events', 'update'),
+(gen_random_uuid(), 'events.delete', 'Delete events', 'events', 'delete'),
 
 -- Payment management
-('payments.read', 'Read payment information', 'payments', 'read'),
-('payments.create', 'Create new payments', 'payments', 'create'),
-('payments.update', 'Update payment information', 'payments', 'update'),
-('payments.delete', 'Delete payments', 'payments', 'delete');
+(gen_random_uuid(), 'payments.read', 'Read payment information', 'payments', 'read'),
+(gen_random_uuid(), 'payments.create', 'Create new payments', 'payments', 'create'),
+(gen_random_uuid(), 'payments.update', 'Update payment information', 'payments', 'update'),
+(gen_random_uuid(), 'payments.delete', 'Delete payments', 'payments', 'delete');
 ```
 
 ## Security Considerations
@@ -328,6 +317,7 @@ INSERT INTO permissions (name, description, resource, action) VALUES
 7. **SQL Injection Prevention**: Using parameterized queries
 8. **Rate Limiting**: Implemented at the API level
 9. **OAuth Security**: Secure OAuth token handling and validation
+10. **Hybrid ID Security**: Public IDs prevent enumeration attacks
 
 ## Migration Strategy
 
@@ -336,3 +326,4 @@ INSERT INTO permissions (name, description, resource, action) VALUES
 3. **Data Migration**: Proper data migration scripts for schema changes
 4. **Rollback Support**: Ability to rollback migrations if needed
 5. **Testing**: All migrations are tested in development environment first
+6. **Hybrid Approach**: Seamless transition between internal and public IDs

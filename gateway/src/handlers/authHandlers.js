@@ -34,8 +34,7 @@ const refreshUserToken = async (req, res) => {
  */
 const logoutUser = async (req, res) => {
   await grpcClients.authService.logout({
-    userId: req.user.id,
-    refreshToken: req.body.refreshToken,
+    refresh_token: req.body.refresh_token,
   });
   sendSuccessResponse(res, 200, { message: 'Logout successful' }, req.correlationId);
 };

@@ -27,7 +27,92 @@ The API Gateway is the unified entry point for all client requests to the Event 
 - **API Documentation**: Swagger/OpenAPI documentation
 - **Request Logging**: Structured logging with correlation IDs
 
-## 🏗️ Architecture
+## ��️ Architecture
+
+### **Current Gateway Architecture**
+
+The gateway operates as an **HTTP API Gateway** with **gRPC clients** to microservices:
+
+```
+Gateway (HTTP API Gateway)
+├── src/index.js              # ✅ Main entry point (Express HTTP server)
+├── src/grpc/clients.js       # ✅ gRPC clients to other services
+├── src/handlers/             # ✅ HTTP request handlers
+├── src/routes/               # ✅ Express routes
+├── src/middlewares/          # ✅ Express middlewares
+├── src/services/             # ✅ Business logic services
+├── src/utils/                # ✅ Utility functions
+├── src/config/               # ✅ Configuration files
+└── src/protos/               # ✅ Proto files for gRPC clients
+```
+
+### **Architecture Flow**
+
+```
+Client (HTTP Request)
+    ↓
+Gateway (Express HTTP Server)
+    ↓
+Middleware Stack (Auth, Rate Limiting, Validation)
+    ↓
+Route Handler
+    ↓
+gRPC Client (to Microservices)
+    ↓
+Microservice (gRPC Server)
+    ↓
+Response Transformation
+    ↓
+Client (HTTP Response)
+```
+
+### **Gateway Role Clarification**
+
+#### **✅ What Gateway IS:**
+
+- **HTTP API Gateway**: Accepts HTTP requests from clients
+- **gRPC Client**: Makes gRPC calls to microservices
+- **Request Router**: Routes requests to appropriate services
+- **Response Transformer**: Converts gRPC responses to HTTP
+- **Middleware Orchestrator**: Handles auth, rate limiting, validation
+
+#### **❌ What Gateway is NOT:**
+
+- **gRPC Server**: Does not expose gRPC endpoints
+- **Business Logic Service**: Does not contain core business logic
+- **Database Service**: Does not directly access databases
+- **Authentication Service**: Delegates auth to auth-service
+
+### **Service Communication Pattern**
+
+#### **Gateway → Microservices**
+
+```javascript
+// Gateway acts as gRPC CLIENT
+import grpcClients from './grpc/clients.js';
+
+// Make gRPC calls to microservices
+const user = await grpcClients.authService.login(loginRequest);
+const profile = await grpcClients.userService.getProfile(profileRequest);
+```
+
+#### **Microservices → Gateway**
+
+```javascript
+// Microservices are gRPC SERVERS
+// They don't call gateway, gateway calls them
+```
+
+### **Comparison: Gateway vs Microservices**
+
+| Aspect            | Gateway           | Microservices (e.g., Auth-Service) |
+| ----------------- | ----------------- | ---------------------------------- |
+| **Protocol**      | HTTP (Express)    | gRPC Server                        |
+| **Role**          | API Gateway       | Business Logic Service             |
+| **Entry Point**   | `src/index.js`    | `src/index.js`                     |
+| **Server Type**   | Express Server    | gRPC Server                        |
+| **Client/Server** | gRPC Client       | gRPC Server                        |
+| **Proto Files**   | Client interfaces | Server interfaces                  |
 
 ### Technology Stack
 
@@ -87,6 +172,40 @@ Transform gRPC Response to REST
 Error Mapping (if applicable)
     ↓
 Return Response to Client
+```
+
+## 🚀 Development Workflow
+
+### **Start Gateway**
+
+```bash
+# Development
+npm run dev
+
+# Production
+npm start
+
+# Local development with infrastructure
+npm run dev:local
+```
+
+### **Entry Point**
+
+```javascript
+// src/index.js - Main entry point
+import express from 'express';
+import { initializeGateway } from './services/initializeService.js';
+
+const app = express();
+const PORT = config.server.port;
+
+// Initialize all middleware and routes
+initializeGateway(app);
+
+// Start HTTP server
+app.listen(PORT, () => {
+  logger.info(`Gateway server running on port ${PORT}`);
+});
 ```
 
 ## 📡 API Endpoints
@@ -301,20 +420,37 @@ LOG_LEVEL=info
 LOG_FORMAT=json
 ```
 
+### Service Discovery
+
+```javascript
+// src/config/index.js
+const config = {
+  grpc: {
+    authService: {
+      url: process.env.GRPC_AUTH_SERVICE_URL || 'auth-service:50051',
+    },
+    userService: {
+      url: process.env.GRPC_USER_SERVICE_URL || 'user-profile:50052',
+    },
+    // ... other services
+  },
+};
+```
+
 ### gRPC Service Discovery
 
 ```javascript
 // gRPC service registry configuration
 const grpcServices = {
   auth: {
-    instances: ["auth-service-1:50051", "auth-service-2:50051"],
-    healthCheck: "/grpc.health.v1.Health/Check",
+    instances: ['auth-service-1:50051', 'auth-service-2:50051'],
+    healthCheck: '/grpc.health.v1.Health/Check',
     timeout: 5000,
     retries: 3,
   },
   user: {
-    instances: ["user-profile-1:50052", "user-profile-2:50052"],
-    healthCheck: "/grpc.health.v1.Health/Check",
+    instances: ['user-profile-1:50052', 'user-profile-2:50052'],
+    healthCheck: '/grpc.health.v1.Health/Check',
     timeout: 5000,
     retries: 3,
   },
@@ -352,6 +488,22 @@ npm run test:load
 
 ```bash
 npm run test:coverage
+```
+
+### Test Gateway
+
+```bash
+# Test HTTP endpoints
+npm test
+
+# Test gRPC client connections
+node test-auth-connection.js
+```
+
+### Health Check
+
+```http
+GET /health
 ```
 
 ## 🚀 Deployment
@@ -403,11 +555,11 @@ spec:
             - containerPort: 3000
           env:
             - name: REDIS_URL
-              value: "redis://redis-service:6379"
+              value: 'redis://redis-service:6379'
             - name: GRPC_AUTH_SERVICE_URL
-              value: "auth-service:50051"
+              value: 'auth-service:50051'
             - name: GRPC_USER_SERVICE_URL
-              value: "user-profile:50052"
+              value: 'user-profile:50052'
           volumeMounts:
             - name: grpc-certs
               mountPath: /etc/grpc/certs
@@ -453,7 +605,7 @@ The gateway implements a centralized error mapping system that converts gRPC err
 const AUTH_ERROR_MAPPING = {
   3: { status: 401, message: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
   6: { status: 409, message: 'User already exists', code: 'USER_EXISTS' },
-  16: { status: 401, message: 'Invalid refresh token', code: 'INVALID_REFRESH_TOKEN' }
+  16: { status: 401, message: 'Invalid refresh token', code: 'INVALID_REFRESH_TOKEN' },
 };
 ```
 
@@ -572,7 +724,28 @@ docker logs gateway-service
 - **Monitoring**: Prometheus and Grafana
 - **Protocol Buffers**: Message serialization
 
+## 📚 Documentation
+
+### API Documentation
+
+- **Swagger UI**: `http://localhost:3000/api-docs`
+- **Health Check**: `http://localhost:3000/health`
+- **Metrics**: `http://localhost:3000/metrics`
+
+### Related Documentation
+
+- `ARCHITECTURE_UPDATE.md` - Architecture changes and clarifications
+- `DEVELOPMENT.md` - Development guidelines
+- `SWAGGER_README.md` - API documentation setup
+
 ## 🆕 Recent Updates
+
+### Architecture Clarification
+
+- **HTTP API Gateway**: Gateway is an HTTP server with gRPC clients
+- **No gRPC Server**: Removed deprecated gRPC server functionality
+- **Clear Roles**: Gateway routes HTTP requests to gRPC microservices
+- **Service Independence**: Each service owns its proto interface
 
 ### Error Mapping System
 
@@ -609,3 +782,41 @@ The gateway now supports queue-based booking via the **Booking Worker Service** 
 1. **Client sends booking request to Gateway** → 2. **Gateway forwards to Booking Worker** → 3. **Client receives queue position/status** → 4. **On turn, client proceeds to payment**
 
 This architecture ensures fair booking access and prevents system overload during high-demand events.
+
+## ✅ Benefits of Current Architecture
+
+### **1. Clear Separation of Concerns**
+
+- ✅ Gateway: HTTP API management
+- ✅ Microservices: Business logic
+- ✅ No confusion about roles
+
+### **2. Scalability**
+
+- ✅ Gateway can scale independently
+- ✅ Microservices can scale independently
+- ✅ Load balancing at both levels
+
+### **3. Maintainability**
+
+- ✅ Clear file structure
+- ✅ Single responsibility principle
+- ✅ Easy to understand and modify
+
+### **4. Performance**
+
+- ✅ HTTP for client communication (familiar)
+- ✅ gRPC for inter-service communication (fast)
+- ✅ Best of both worlds
+
+## 🎯 Key Takeaways
+
+1. **Gateway is HTTP API Gateway**: Accepts HTTP, calls gRPC
+2. **No gRPC Server in Gateway**: Only gRPC clients
+3. **Clear Entry Point**: `src/index.js` (Express server)
+4. **Service Independence**: Each service has its own proto files
+5. **Scalable Architecture**: Can scale gateway and services independently
+
+---
+
+**Gateway architecture is now clear and optimized for its role as an HTTP API Gateway!** 🎉

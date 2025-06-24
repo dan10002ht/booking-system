@@ -7,13 +7,15 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "dev:local": "NODE_ENV=development nodemon src/index.js",
+    "dev:local": "./scripts/dev-local.sh",
+    "dev:docker": "docker-compose -f ../deploy/docker-compose.dev.yml up auth-service",
     "lint": "eslint src --ext .js",
     "lint:fix": "eslint src --ext .js --fix",
     "format": "prettier --write \"src/**/*.js\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:grpc": "node test-grpc.js",
     "docker:build": "docker build -t booking-system/auth-service .",
     "docker:run": "docker run -p 50051:50051 booking-system/auth-service",
     "migrate:make": "knex migrate:make",
@@ -22,7 +24,10 @@
     "migrate:status": "knex migrate:status",
     "seed:make": "knex seed:make",
     "seed:run": "knex seed:run",
-    "db:setup": "npm run migrate:latest && npm run seed:run"
+    "db:setup": "npm run migrate:latest && npm run seed:run",
+    "infra:start": "docker-compose -f ../deploy/docker-compose.dev.yml up -d",
+    "infra:stop": "docker-compose -f ../deploy/docker-compose.dev.yml down",
+    "infra:logs": "docker-compose -f ../deploy/docker-compose.dev.yml logs -f"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.9.9",
