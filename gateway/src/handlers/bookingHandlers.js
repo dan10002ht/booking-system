@@ -1,5 +1,9 @@
 import grpcClients from '../grpc/clients.js';
-import { sendSuccessResponse, createHandler, createSimpleHandler } from '../utils/responseHandler.js';
+import {
+  sendSuccessResponse,
+  createHandler,
+  createSimpleHandler,
+} from '../utils/responseHandler.js';
 
 /**
  * Create a new booking
@@ -7,7 +11,7 @@ import { sendSuccessResponse, createHandler, createSimpleHandler } from '../util
 const createNewBooking = async (req, res) => {
   const result = await grpcClients.bookingService.createBooking({
     userId: req.user.id,
-    ...req.body
+    ...req.body,
   });
   sendSuccessResponse(res, 201, result, req.correlationId);
 };
@@ -18,7 +22,7 @@ const createNewBooking = async (req, res) => {
 const getBookingById = async (req, res) => {
   const result = await grpcClients.bookingService.getBooking({
     bookingId: req.params.bookingId,
-    userId: req.user.id
+    userId: req.user.id,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
@@ -31,7 +35,7 @@ const getUserBookings = async (req, res) => {
     userId: req.user.id,
     status: req.query.status,
     limit: req.query.limit,
-    offset: req.query.offset
+    offset: req.query.offset,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
@@ -42,7 +46,7 @@ const getUserBookings = async (req, res) => {
 const cancelUserBooking = async (req, res) => {
   const result = await grpcClients.bookingService.cancelBooking({
     bookingId: req.params.bookingId,
-    userId: req.user.id
+    userId: req.user.id,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
@@ -54,7 +58,7 @@ const updateUserBooking = async (req, res) => {
   const result = await grpcClients.bookingService.updateBooking({
     bookingId: req.params.bookingId,
     userId: req.user.id,
-    ...req.body
+    ...req.body,
   });
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
@@ -62,6 +66,14 @@ const updateUserBooking = async (req, res) => {
 // Export wrapped handlers
 export const createBookingHandler = createHandler(createNewBooking, 'booking', 'createBooking');
 export const getBookingHandler = createSimpleHandler(getBookingById, 'booking', 'getBooking');
-export const getUserBookingsHandler = createSimpleHandler(getUserBookings, 'booking', 'getUserBookings');
-export const cancelBookingHandler = createSimpleHandler(cancelUserBooking, 'booking', 'cancelBooking');
-export const updateBookingHandler = createHandler(updateUserBooking, 'booking', 'updateBooking'); 
+export const getUserBookingsHandler = createSimpleHandler(
+  getUserBookings,
+  'booking',
+  'getUserBookings'
+);
+export const cancelBookingHandler = createSimpleHandler(
+  cancelUserBooking,
+  'booking',
+  'cancelBooking'
+);
+export const updateBookingHandler = createHandler(updateUserBooking, 'booking', 'updateBooking');
