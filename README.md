@@ -9,6 +9,7 @@ A high-performance event ticket booking system built with microservices architec
 - **Eventual consistency** with strong consistency for critical operations
 - **Horizontal scaling** for all services
 - **Fault tolerance** with circuit breakers and retry mechanisms
+- **Advanced security** with device management and threat detection
 
 ## 🏗️ Architecture Overview
 
@@ -20,16 +21,19 @@ A high-performance event ticket booking system built with microservices architec
 - **Circuit Breaker Pattern** for inter-service communication
 - **gRPC Communication** for high-performance inter-service calls
 - **Rate Limiting** and **Load Balancing** at gateway level
+- **Security-First Design** with comprehensive threat detection
 
 ### Technology Stack
 
 - **API Gateway**: Node.js (Express) + Redis + gRPC client
 - **Authentication**: Node.js + JWT + Redis + gRPC server
+- **Device Management**: Node.js + Redis + PostgreSQL + gRPC server (internal only)
+- **Security Monitoring**: Node.js + Elasticsearch + Redis + gRPC server (internal only)
 - **Booking Engine**: Java (Spring Boot) + Redis + PostgreSQL + gRPC
 - **Payment Processing**: Java + Stripe/PayPal integration + gRPC
 - **Real-time**: Node.js + WebSocket + Redis Pub/Sub
 - **Message Queue**: Redis Queue + Kafka (for high throughput)
-- **Database**: PostgreSQL (primary) + Redis (cache)
+- **Database**: PostgreSQL (primary) + Redis (cache) + Elasticsearch (logs)
 - **Inter-Service Communication**: gRPC (high performance) + REST (external APIs)
 - **Monitoring**: Prometheus + Grafana + ELK Stack
 
@@ -38,22 +42,34 @@ A high-performance event ticket booking system built with microservices architec
 ### 1. User Authentication Flow
 
 ```
-User → Gateway → Auth Service (gRPC) → JWT Token → User Session
+User → Gateway → Auth Service (gRPC) → Device Service (gRPC) → Security Service (gRPC) → JWT Token → User Session
 ```
 
-### 2. Ticket Booking Flow (Critical Path)
+### 2. Security Monitoring Flow
+
+```
+All Services → Security Service (gRPC) → Threat Detection → Alert System → Notification Service
+```
+
+### 3. Device Management Flow
+
+```
+User Login → Device Service (gRPC) → Device Recognition → Session Management → Security Validation
+```
+
+### 4. Ticket Booking Flow (Critical Path)
 
 ```
 User → Gateway → Rate Limiter → Ticket Service (gRPC) → Booking Service (gRPC) → Payment Service (gRPC) → Notification Service (gRPC)
 ```
 
-### 3. Real-time Updates Flow
+### 5. Real-time Updates Flow
 
 ```
 Booking Service → Redis Pub/Sub → Realtime Service → WebSocket → User Browser
 ```
 
-### 4. Background Processing Flow
+### 6. Background Processing Flow
 
 ```
 Booking Service → Kafka → Email Worker → Invoice Service (gRPC) → Notification Service (gRPC)
@@ -65,6 +81,8 @@ Booking Service → Kafka → Email Worker → Invoice Service (gRPC) → Notifi
 
 - **gateway/**: API Gateway with rate limiting, load balancing, and gRPC client
 - **auth-service/**: Authentication and authorization with gRPC server
+- **device-service/**: Device management and session control with gRPC server
+- **security-service/**: Threat detection and security monitoring with gRPC server
 - **ticket-service/**: Public ticket APIs with caching and gRPC server
 - **booking-service/**: Core booking logic with Redis locking and gRPC server
 - **payment-service/**: Payment processing with idempotency and gRPC server
@@ -91,7 +109,7 @@ Booking Service → Kafka → Email Worker → Invoice Service (gRPC) → Notifi
 
 ### Data Consistency
 
-- **Strong Consistency**: Booking operations, payment processing
+- **Strong Consistency**: Booking operations, payment processing, security events
 - **Eventual Consistency**: Analytics, notifications, user preferences
 - **Saga Pattern**: Distributed transactions across services
 - **Outbox Pattern**: Reliable event publishing
@@ -99,12 +117,16 @@ Booking Service → Kafka → Email Worker → Invoice Service (gRPC) → Notifi
 ### Security Measures
 
 - **JWT Authentication** with refresh tokens
-- **Rate Limiting** per user/IP
+- **Device Management** with device fingerprinting and trust levels
+- **Threat Detection** with real-time security monitoring
+- **Session Control** with granular device management
+- **Rate Limiting** per user/IP/device
 - **Input Validation** and sanitization
 - **HTTPS/TLS** encryption
 - **gRPC TLS** for inter-service communication
 - **Database Encryption** at rest
 - **Audit Logging** for sensitive operations
+- **Suspicious Activity Detection** with machine learning
 
 ### Scalability Patterns
 
@@ -237,6 +259,8 @@ kubectl get pods -n booking-system
 | -------------------- | ----------- | -------- | ---------- | ----- | ------ |
 | Gateway              | 🟡 Planning | Node.js  | -          | Redis | Client |
 | Auth Service         | 🟡 Planning | Node.js  | PostgreSQL | Redis | Server |
+| Device Service       | 🟡 Planning | Node.js  | PostgreSQL | Redis | Server |
+| Security Service     | 🟡 Planning | Node.js  | PostgreSQL | Redis | Server |
 | Ticket Service       | 🟡 Planning | Node.js  | PostgreSQL | Redis | Server |
 | Booking Service      | 🟡 Planning | Java     | PostgreSQL | Redis | Server |
 | Payment Service      | 🟡 Planning | Java     | PostgreSQL | Redis | Server |
@@ -339,6 +363,8 @@ The **Check-in Service** is responsible for validating tickets and processing ch
 | -------------------- | -------- | ---------------------------------------------------------------- |
 | gateway              | Node.js  | Fast I/O, API Gateway, easy middleware, real-time integration    |
 | auth-service         | Node.js  | JWT, OAuth2, rapid development, easy integration                 |
+| device-service       | Node.js  | Device management, session control, security integration         |
+| security-service     | Node.js  | Threat detection, security monitoring, real-time alerts          |
 | user-profile         | Node.js  | CRUD, preferences, easy frontend integration                     |
 | event-management     | Node.js  | Event/venue CRUD, media, search                                  |
 | realtime-service     | Node.js  | WebSocket, real-time, pub/sub, fast push                         |

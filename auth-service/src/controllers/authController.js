@@ -1,27 +1,27 @@
-import * as authService from '../services/authService.js';
-
-import { validateProfileUpdate } from '../utils/validations.js';
+﻿import * as authService from '../services/authService.js';
+import * as userManagementService from '../services/userManagementService.js';
+import * as adminService from '../services/adminService.js';
 import { sanitizePagination, sanitizeFilters } from '../utils/sanitizers.js';
 
-/**
- * Auth Controller with Functional Approach
- * Uses AuthService functions to handle operations
- */
-
-// ========== REGISTRATION & LOGIN ==========
-
-/**
- * Register new user
- */
 export async function register(call, callback) {
   try {
-    const { email, password, username, first_name, last_name, phone, role, ip_address, user_agent } = call.request;
+    const {
+      email,
+      password,
+      username,
+      first_name,
+      last_name,
+      phone,
+      role,
+      organization,
+      ip_address,
+      user_agent,
+    } = call.request;
 
-    // Validate input
     if (!email || !password) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'Email and password are required'
+        code: 3,
+        message: 'Email and password are required',
       });
     }
 
@@ -33,8 +33,9 @@ export async function register(call, callback) {
       last_name,
       phone,
       role: role || 'user',
+      organization,
       ip_address,
-      user_agent
+      user_agent,
     };
 
     const result = await authService.register(userData);
@@ -42,15 +43,16 @@ export async function register(call, callback) {
     callback(null, {
       success: true,
       user: result.user,
+      organization: result.organization,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
-      message: 'Registration successful'
+      message: 'Registration successful',
     });
   } catch (error) {
     console.error('Register error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
@@ -62,11 +64,10 @@ export async function login(call, callback) {
   try {
     const { email, password, ip_address, user_agent } = call.request;
 
-    // Validate input
     if (!email || !password) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'Email and password are required'
+        code: 3,
+        message: 'Email and password are required',
       });
     }
 
@@ -78,28 +79,25 @@ export async function login(call, callback) {
       user: result.user,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
-      message: 'Login successful'
+      message: 'Login successful',
     });
   } catch (error) {
     console.error('Login error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * User logout
- */
 export async function logout(call, callback) {
   try {
     const { user_id, session_id } = call.request;
 
     if (!user_id) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'User ID is required'
+        code: 3,
+        message: 'User ID is required',
       });
     }
 
@@ -107,30 +105,25 @@ export async function logout(call, callback) {
 
     callback(null, {
       success: true,
-      message: result.message
+      message: result.message,
     });
   } catch (error) {
     console.error('Logout error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-// ========== TOKEN MANAGEMENT ==========
-
-/**
- * Refresh access token
- */
 export async function refreshToken(call, callback) {
   try {
     const { refresh_token } = call.request;
 
     if (!refresh_token) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'Refresh token is required'
+        code: 3,
+        message: 'Refresh token is required',
       });
     }
 
@@ -140,28 +133,25 @@ export async function refreshToken(call, callback) {
       success: true,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
-      message: 'Token refresh successful'
+      message: 'Token refresh successful',
     });
   } catch (error) {
     console.error('Refresh token error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * Validate access token
- */
 export async function validateToken(call, callback) {
   try {
     const { token } = call.request;
 
     if (!token) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'Token is required'
+        code: 3,
+        message: 'Token is required',
       });
     }
 
@@ -169,30 +159,25 @@ export async function validateToken(call, callback) {
 
     callback(null, {
       valid: true,
-      user: result.user
+      user: result.user,
     });
   } catch (error) {
     console.error('Validate token error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-// ========== PASSWORD MANAGEMENT ==========
-
-/**
- * Change password
- */
 export async function changePassword(call, callback) {
   try {
     const { user_id, current_password, new_password } = call.request;
 
     if (!user_id || !current_password || !new_password) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'User ID, current password and new password are required'
+        code: 3,
+        message: 'User ID, current password and new password are required',
       });
     }
 
@@ -200,152 +185,147 @@ export async function changePassword(call, callback) {
 
     callback(null, {
       success: true,
-      message: result.message
+      message: result.message,
     });
   } catch (error) {
     console.error('Change password error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * Reset password
- */
 export async function resetPassword(call, callback) {
   try {
-    const { token, new_password } = call.request;
+    const { user_id, new_password } = call.request;
 
-    if (!token || !new_password) {
+    if (!user_id || !new_password) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'Token and new password are required'
+        code: 3,
+        message: 'User ID and new password are required',
       });
     }
 
-    const result = await authService.resetPassword(token, new_password);
+    const result = await adminService.resetPassword(user_id, new_password);
 
     callback(null, {
       success: true,
-      message: result.message
+      message: result.message,
     });
   } catch (error) {
     console.error('Reset password error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-// ========== USER MANAGEMENT ==========
-
-/**
- * Get user profile
- */
 export async function getUserProfile(call, callback) {
   try {
     const { user_id } = call.request;
 
     if (!user_id) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'User ID is required'
+        code: 3,
+        message: 'User ID is required',
       });
     }
 
-    const result = await authService.getUserProfile(user_id);
+    const result = await userManagementService.getUserProfile(user_id);
 
     callback(null, {
       success: true,
-      user: result.user,
-      message: 'User profile retrieved successfully'
+      user: result,
+      message: 'User profile retrieved successfully',
     });
   } catch (error) {
     console.error('Get user profile error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * Update user profile
- */
 export async function updateUserProfile(call, callback) {
   try {
-    const { user_id, ...updateData } = call.request;
+    const {
+      user_id,
+      first_name,
+      last_name,
+      phone,
+      address,
+      city,
+      state,
+      country,
+      postal_code,
+      profile_picture_url,
+    } = call.request;
 
     if (!user_id) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'User ID is required'
+        code: 3,
+        message: 'User ID is required',
       });
     }
 
-    // Validate update data
-    const validationResult = validateProfileUpdate(updateData);
-    if (!validationResult.isValid) {
-      return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: validationResult.errors.join(', ')
-      });
-    }
+    const updateData = {
+      first_name,
+      last_name,
+      phone,
+      address,
+      city,
+      state,
+      country,
+      postal_code,
+      profile_picture_url,
+    };
 
-    const result = await authService.updateUserProfile(user_id, updateData);
+    const result = await userManagementService.updateUserProfile(user_id, updateData);
 
     callback(null, {
       success: true,
-      user: result.user,
-      message: 'User profile updated successfully'
+      user: result,
+      message: 'User profile updated successfully',
     });
   } catch (error) {
     console.error('Update user profile error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * Get user sessions
- */
 export async function getUserSessions(call, callback) {
   try {
     const { user_id } = call.request;
 
     if (!user_id) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'User ID is required'
+        code: 3,
+        message: 'User ID is required',
       });
     }
 
-    const result = await authService.getUserSessions(user_id);
+    const result = await userManagementService.getUserSessions(user_id);
 
     callback(null, {
       success: true,
-      sessions: result.sessions,
-      message: 'User sessions retrieved successfully'
+      sessions: result,
+      message: 'User sessions retrieved successfully',
     });
   } catch (error) {
     console.error('Get user sessions error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-// ========== ADMIN OPERATIONS ==========
-
-/**
- * Get all users (admin only)
- */
 export async function getUsers(call, callback) {
   try {
     const { page, limit, filters } = call.request;
@@ -353,105 +333,105 @@ export async function getUsers(call, callback) {
     const sanitizedPagination = sanitizePagination({ page, limit });
     const sanitizedFilters = sanitizeFilters(filters);
 
-    const result = await authService.getUsers(sanitizedPagination, sanitizedFilters);
+    const result = await adminService.getUsers(
+      sanitizedPagination.page,
+      sanitizedPagination.limit,
+      sanitizedFilters
+    );
 
     callback(null, {
       success: true,
       users: result.users,
       pagination: result.pagination,
-      message: 'Users retrieved successfully'
+      message: 'Users retrieved successfully',
     });
   } catch (error) {
     console.error('Get users error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * Search users (admin only)
- */
 export async function searchUsers(call, callback) {
   try {
-    const { query, page, limit, filters } = call.request;
+    const { search_term, page, limit } = call.request;
 
-    if (!query) {
+    if (!search_term) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'Search query is required'
+        code: 3,
+        message: 'Search term is required',
       });
     }
 
     const sanitizedPagination = sanitizePagination({ page, limit });
-    const sanitizedFilters = sanitizeFilters(filters);
-
-    const result = await authService.searchUsers(query, sanitizedPagination, sanitizedFilters);
+    const result = await adminService.searchUsers(
+      search_term,
+      sanitizedPagination.page,
+      sanitizedPagination.limit
+    );
 
     callback(null, {
       success: true,
-      users: result.users,
+      users: result.data,
       pagination: result.pagination,
-      message: 'Users search completed successfully'
+      message: 'Users search completed successfully',
     });
   } catch (error) {
     console.error('Search users error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-/**
- * Update user status (admin only)
- */
 export async function updateUserStatus(call, callback) {
   try {
-    const { user_id, status, reason } = call.request;
+    const { user_id, status } = call.request;
 
     if (!user_id || !status) {
       return callback({
-        code: 3, // INVALID_ARGUMENT
-        message: 'User ID and status are required'
+        code: 3,
+        message: 'User ID and status are required',
       });
     }
 
-    const result = await authService.updateUserStatus(user_id, status, reason);
+    const result = await adminService.updateUserStatus(user_id, status);
 
     callback(null, {
       success: true,
-      user: result.user,
-      message: 'User status updated successfully'
+      user: result,
+      message: 'User status updated successfully',
     });
   } catch (error) {
     console.error('Update user status error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
 
-// ========== HEALTH CHECK ==========
-
-/**
- * Health check endpoint
- */
 export async function health(call, callback) {
   try {
-    const timestamp = new Date().toISOString();
-    
+    const result = await authService.healthCheck();
+
     callback(null, {
-      status: 'healthy',
-      timestamp: timestamp
+      status: result.status,
+      message: result.status === 'healthy' ? 'Service is healthy' : 'Service is unhealthy',
+      details: {
+        timestamp: result.timestamp,
+        database: result.database,
+        service: result.service,
+      },
     });
   } catch (error) {
     console.error('Health check error:', error);
     callback({
-      code: 13, // INTERNAL
-      message: error.message
+      code: 13,
+      message: error.message,
     });
   }
 }
