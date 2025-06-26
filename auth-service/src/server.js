@@ -3,7 +3,7 @@ import protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from './utils/logger.js';
-import { closeDatabaseConnections } from './config/databaseConfig.js';
+import { closeConnections } from './config/databaseConfig.js';
 
 // Import functional controllers
 import * as authController from './controllers/authController.js';
@@ -15,11 +15,11 @@ const __dirname = path.dirname(__filename);
 const PROTO_PATH = path.join(__dirname, 'proto', 'auth.proto');
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-  keepCase: true,
+  keepCase: false,
   longs: String,
   enums: String,
   defaults: true,
-  oneofs: true
+  oneofs: true,
 });
 
 const authProto = grpc.loadPackageDefinition(packageDefinition).auth;
@@ -31,6 +31,8 @@ const server = new grpc.Server();
 server.addService(authProto.AuthService.service, {
   // Registration & Login
   register: authController.register,
+  registerWithEmail: authController.registerWithEmail,
+  registerWithOAuth: authController.registerWithOAuth,
   login: authController.login,
   logout: authController.logout,
 
@@ -53,13 +55,13 @@ server.addService(authProto.AuthService.service, {
   updateUserStatus: authController.updateUserStatus,
 
   // Health Check
-  health: authController.health
+  health: authController.health,
 });
 
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
   logger.info(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
-  
+
   try {
     // Stop accepting new requests
     server.tryShutdown(() => {
@@ -67,7 +69,7 @@ const gracefulShutdown = async (signal) => {
     });
 
     // Close database connections
-    await closeDatabaseConnections();
+    await closeConnections();
     logger.info('✅ Database connections closed');
 
     logger.info('✅ Graceful shutdown completed');
@@ -93,4 +95,4 @@ process.on('unhandledRejection', (reason, promise) => {
   gracefulShutdown('unhandledRejection');
 });
 
-export { server, gracefulShutdown }; 
+export { server, gracefulShutdown };

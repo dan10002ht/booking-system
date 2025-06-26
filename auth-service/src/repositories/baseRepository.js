@@ -51,11 +51,8 @@ class BaseRepository {
    * Tìm record theo ID
    */
   async findById(id) {
-    const results = await this.getSlaveDb()
-      .select('*')
-      .where('id', id)
-      .limit(1);
-    
+    const results = await this.getSlaveDb().select('*').where('id', id).limit(1);
+
     return results[0] || null;
   }
 
@@ -63,11 +60,8 @@ class BaseRepository {
    * Tìm record theo điều kiện
    */
   async findOne(conditions) {
-    const results = await this.getSlaveDb()
-      .select('*')
-      .where(conditions)
-      .limit(1);
-    
+    const results = await this.getSlaveDb().select('*').where(conditions).limit(1);
+
     return results[0] || null;
   }
 
@@ -97,10 +91,8 @@ class BaseRepository {
    * Đếm số records theo điều kiện
    */
   async count(conditions = {}) {
-    const result = await this.getSlaveDb()
-      .count('* as total')
-      .where(conditions);
-    
+    const result = await this.getSlaveDb().count('* as total').where(conditions);
+
     return parseInt(result[0].total);
   }
 
@@ -108,11 +100,8 @@ class BaseRepository {
    * Kiểm tra record có tồn tại không
    */
   async exists(conditions) {
-    const result = await this.getSlaveDb()
-      .select('id')
-      .where(conditions)
-      .limit(1);
-    
+    const result = await this.getSlaveDb().select('id').where(conditions).limit(1);
+
     return result.length > 0;
   }
 
@@ -122,10 +111,8 @@ class BaseRepository {
    * Tạo record mới
    */
   async create(data) {
-    const [result] = await this.getMasterDb()
-      .insert(data)
-      .returning('*');
-    
+    const [result] = await this.getMasterDb().insert(data).returning('*');
+
     return result;
   }
 
@@ -133,10 +120,8 @@ class BaseRepository {
    * Tạo nhiều records cùng lúc
    */
   async createMany(dataArray) {
-    const results = await this.getMasterDb()
-      .insert(dataArray)
-      .returning('*');
-    
+    const results = await this.getMasterDb().insert(dataArray).returning('*');
+
     return results;
   }
 
@@ -144,11 +129,8 @@ class BaseRepository {
    * Cập nhật record theo ID
    */
   async updateById(id, data) {
-    const [result] = await this.getMasterDb()
-      .where('id', id)
-      .update(data)
-      .returning('*');
-    
+    const [result] = await this.getMasterDb().where('id', id).update(data).returning('*');
+
     return result;
   }
 
@@ -156,11 +138,8 @@ class BaseRepository {
    * Cập nhật records theo điều kiện
    */
   async update(conditions, data) {
-    const results = await this.getMasterDb()
-      .where(conditions)
-      .update(data)
-      .returning('*');
-    
+    const results = await this.getMasterDb().where(conditions).update(data).returning('*');
+
     return results;
   }
 
@@ -168,11 +147,8 @@ class BaseRepository {
    * Xóa record theo ID
    */
   async deleteById(id) {
-    const [result] = await this.getMasterDb()
-      .where('id', id)
-      .del()
-      .returning('*');
-    
+    const [result] = await this.getMasterDb().where('id', id).del().returning('*');
+
     return result;
   }
 
@@ -180,11 +156,8 @@ class BaseRepository {
    * Xóa records theo điều kiện
    */
   async delete(conditions) {
-    const results = await this.getMasterDb()
-      .where(conditions)
-      .del()
-      .returning('*');
-    
+    const results = await this.getMasterDb().where(conditions).del().returning('*');
+
     return results;
   }
 
@@ -198,7 +171,7 @@ class BaseRepository {
       .onConflict(conflictColumns)
       .merge()
       .returning('*');
-    
+
     return result;
   }
 
@@ -232,11 +205,8 @@ class BaseRepository {
    */
   async join(joinTable, joinCondition, options = {}) {
     const { select = '*', where = {}, limit, offset, orderBy, orderDirection = 'asc' } = options;
-    
-    let query = this.getSlaveDb()
-      .select(select)
-      .join(joinTable, joinCondition)
-      .where(where);
+
+    let query = this.getSlaveDb().select(select).join(joinTable, joinCondition).where(where);
 
     if (orderBy) {
       query = query.orderBy(orderBy, orderDirection);
@@ -262,7 +232,7 @@ class BaseRepository {
 
     const [data, totalCount] = await Promise.all([
       this.findMany(conditions, { limit: pageSize, offset, orderBy, orderDirection }),
-      this.count(conditions)
+      this.count(conditions),
     ]);
 
     return {
@@ -273,10 +243,10 @@ class BaseRepository {
         total: totalCount,
         totalPages: Math.ceil(totalCount / pageSize),
         hasNext: page < Math.ceil(totalCount / pageSize),
-        hasPrev: page > 1
-      }
+        hasPrev: page > 1,
+      },
     };
   }
 }
 
-export default BaseRepository; 
+export default BaseRepository;

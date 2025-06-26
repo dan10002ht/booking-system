@@ -1,13 +1,10 @@
-import UserRepository from '../repositories/userRepository.js';
-import TokenRepository from '../repositories/tokenRepository.js';
-import { generateTokens } from '../utils/tokenUtils.js';
-import { sanitizeUserForResponse } from '../utils/sanitizers.js';
-import { v4 as uuidv4 } from 'uuid';
+import { getUserRepository, getTokenRepository } from '../../repositories/repositoryFactory.js';
+import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 import crypto from 'crypto';
 
-// Initialize repositories
-const userRepository = new UserRepository();
-const tokenRepository = new TokenRepository();
+// Get repository instances from factory
+const userRepository = getUserRepository();
+const tokenRepository = getTokenRepository();
 
 // ========== EMAIL VERIFICATION ==========
 

@@ -1,12 +1,12 @@
-import UserRepository from '../repositories/userRepository.js';
-import { generateTokens } from '../utils/tokenUtils.js';
-import { sanitizeUserForResponse } from '../utils/sanitizers.js';
+import { getUserRepository } from '../../repositories/repositoryFactory.js';
+import { generateTokens } from '../../utils/tokenUtils.js';
+import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 
-// Initialize repository
-const userRepository = new UserRepository();
+// Get user repository instance from factory
+const userRepository = getUserRepository();
 
 // ========== TWO-FACTOR AUTHENTICATION ==========
 

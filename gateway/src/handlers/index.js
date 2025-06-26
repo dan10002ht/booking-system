@@ -1,6 +1,7 @@
 // Auth handlers
 export {
-  registerHandler,
+  registerWithEmailHandler,
+  registerWithOAuthHandler,
   loginHandler,
   refreshTokenHandler,
   logoutHandler,

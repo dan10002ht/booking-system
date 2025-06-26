@@ -1,8 +1,8 @@
-import UserRepository from '../repositories/userRepository.js';
-import { sanitizeUserForResponse } from '../utils/sanitizers.js';
+import { getUserRepository } from '../../repositories/repositoryFactory.js';
+import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 
-// Initialize user repository (singleton pattern)
-const userRepository = new UserRepository();
+// Get user repository instance from factory
+const userRepository = getUserRepository();
 
 // ========== ADMIN USER MANAGEMENT ==========
 

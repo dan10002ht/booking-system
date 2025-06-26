@@ -1,9 +1,9 @@
-import UserRepository from '../repositories/userRepository.js';
-import { sanitizeUserInput, sanitizeUserForResponse } from '../utils/sanitizers.js';
-import { validateEmail, validatePassword } from '../utils/validations.js';
+import { getUserRepository } from '../../repositories/repositoryFactory.js';
+import { sanitizeUserInput, sanitizeUserForResponse } from '../../utils/sanitizers.js';
+import { validateEmail, validatePassword } from '../../utils/validations.js';
 
-// Initialize user repository (singleton pattern)
-const userRepository = new UserRepository();
+// Get user repository instance from factory
+const userRepository = getUserRepository();
 
 // ========== USER PROFILE MANAGEMENT ==========
 

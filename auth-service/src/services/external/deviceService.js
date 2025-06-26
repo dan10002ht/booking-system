@@ -17,7 +17,7 @@ try {
     longs: String,
     enums: String,
     defaults: true,
-    oneofs: true
+    oneofs: true,
   });
   deviceProto = grpc.loadPackageDefinition(packageDefinition).device;
 } catch (error) {
@@ -40,7 +40,7 @@ const createDeviceClient = () => {
       deviceServiceUrl,
       grpc.credentials.createInsecure()
     );
-    
+
     return client;
   } catch (error) {
     logger.error('Failed to create device client:', error);
@@ -80,10 +80,10 @@ export const registerDevice = async (deviceData) => {
       ip_address: deviceData.ip_address,
       user_agent: deviceData.user_agent,
       location_data: Buffer.from(deviceData.location_data || '{}'),
-      fingerprint_data: Buffer.from(deviceData.fingerprint_data || '{}')
+      fingerprint_data: Buffer.from(deviceData.fingerprint_data || '{}'),
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.registerDevice(request, (error, response) => {
         if (error) {
           logger.error('Failed to register device:', error);
@@ -94,7 +94,6 @@ export const registerDevice = async (deviceData) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error registering device:', error);
     return { success: false, message: error.message };
@@ -115,10 +114,10 @@ export const createSession = async (sessionData) => {
       device_id: sessionData.device_id,
       ip_address: sessionData.ip_address,
       user_agent: sessionData.user_agent,
-      location_data: Buffer.from(sessionData.location_data || '{}')
+      location_data: Buffer.from(sessionData.location_data || '{}'),
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.createSession(request, (error, response) => {
         if (error) {
           logger.error('Failed to create session:', error);
@@ -129,7 +128,6 @@ export const createSession = async (sessionData) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error creating session:', error);
     return { success: false, message: error.message };
@@ -149,10 +147,10 @@ export const validateDevice = async (deviceId, userId, ipAddress, userAgent) => 
       device_id: deviceId,
       user_id: userId,
       ip_address: ipAddress,
-      user_agent: userAgent
+      user_agent: userAgent,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.validateDevice(request, (error, response) => {
         if (error) {
           logger.error('Failed to validate device:', error);
@@ -163,7 +161,6 @@ export const validateDevice = async (deviceId, userId, ipAddress, userAgent) => 
         }
       });
     });
-
   } catch (error) {
     logger.error('Error validating device:', error);
     return { success: false, is_valid: false, message: error.message };
@@ -181,10 +178,10 @@ export const getUserSessions = async (userId, activeOnly = true) => {
 
     const request = {
       user_id: userId,
-      active_only: activeOnly
+      active_only: activeOnly,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.getUserSessions(request, (error, response) => {
         if (error) {
           logger.error('Failed to get user sessions:', error);
@@ -195,7 +192,6 @@ export const getUserSessions = async (userId, activeOnly = true) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting user sessions:', error);
     return { success: false, sessions: [] };
@@ -214,10 +210,10 @@ export const getDeviceList = async (userId, page = 1, limit = 10) => {
     const request = {
       user_id: userId,
       page: page,
-      limit: limit
+      limit: limit,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.getDeviceList(request, (error, response) => {
         if (error) {
           logger.error('Failed to get device list:', error);
@@ -228,7 +224,6 @@ export const getDeviceList = async (userId, page = 1, limit = 10) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting device list:', error);
     return { success: false, devices: [] };
@@ -248,10 +243,10 @@ export const updateDeviceTrust = async (deviceId, trustScore, trustLevel, reason
       device_id: deviceId,
       trust_score: trustScore,
       trust_level: trustLevel,
-      reason: reason
+      reason: reason,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.updateDeviceTrust(request, (error, response) => {
         if (error) {
           logger.error('Failed to update device trust:', error);
@@ -262,7 +257,6 @@ export const updateDeviceTrust = async (deviceId, trustScore, trustLevel, reason
         }
       });
     });
-
   } catch (error) {
     logger.error('Error updating device trust:', error);
     return { success: false, message: error.message };
@@ -280,10 +274,10 @@ export const revokeDevice = async (deviceId, reason) => {
 
     const request = {
       device_id: deviceId,
-      reason: reason
+      reason: reason,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.revokeDevice(request, (error, response) => {
         if (error) {
           logger.error('Failed to revoke device:', error);
@@ -294,7 +288,6 @@ export const revokeDevice = async (deviceId, reason) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error revoking device:', error);
     return { success: false, message: error.message };
@@ -314,10 +307,10 @@ export const getDeviceAnalytics = async (userId, deviceId, startDate, endDate) =
       user_id: userId,
       device_id: deviceId,
       start_date: startDate,
-      end_date: endDate
+      end_date: endDate,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.getDeviceAnalytics(request, (error, response) => {
         if (error) {
           logger.error('Failed to get device analytics:', error);
@@ -328,7 +321,6 @@ export const getDeviceAnalytics = async (userId, deviceId, startDate, endDate) =
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting device analytics:', error);
     return { success: false, analytics: null };
@@ -343,7 +335,7 @@ export const health = async () => {
       return { status: 'unavailable' };
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       client.health({}, (error, response) => {
         if (error) {
           resolve({ status: 'unhealthy', error: error.message });
@@ -352,7 +344,6 @@ export const health = async () => {
         }
       });
     });
-
   } catch (error) {
     return { status: 'error', error: error.message };
   }
@@ -367,5 +358,5 @@ export const deviceService = {
   updateDeviceTrust,
   revokeDevice,
   getDeviceAnalytics,
-  health
-}; 
+  health,
+};

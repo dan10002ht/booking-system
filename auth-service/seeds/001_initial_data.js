@@ -3,8 +3,12 @@
  * @returns { Promise<void> }
  */
 export async function seed(knex) {
-  // Insert default roles
-  const roles = await knex('roles').insert([
+  // Check if roles already exist
+  const existingRoles = await knex('roles').select('name');
+  const existingRoleNames = existingRoles.map((r) => r.name);
+
+  // Only insert roles that don't exist
+  const rolesToInsert = [
     {
       public_id: knex.raw('gen_random_uuid()'),
       name: 'admin',
@@ -20,10 +24,22 @@ export async function seed(knex) {
       name: 'individual',
       description: 'Individual user with booking permissions',
     },
-  ]).returning('*');
+  ].filter((role) => !existingRoleNames.includes(role.name));
 
-  // Insert default permissions
-  const permissions = await knex('permissions').insert([
+  let roles = [];
+  if (rolesToInsert.length > 0) {
+    roles = await knex('roles').insert(rolesToInsert).returning('*');
+  } else {
+    // Get existing roles
+    roles = await knex('roles').select('*');
+  }
+
+  // Check if permissions already exist
+  const existingPermissions = await knex('permissions').select('name');
+  const existingPermissionNames = existingPermissions.map((p) => p.name);
+
+  // Only insert permissions that don't exist
+  const permissionsToInsert = [
     // User management
     {
       public_id: knex.raw('gen_random_uuid()'),
@@ -173,155 +189,200 @@ export async function seed(knex) {
       resource: 'payments',
       action: 'delete',
     },
-  ]).returning('*');
+  ].filter((permission) => !existingPermissionNames.includes(permission.name));
+
+  let permissions = [];
+  if (permissionsToInsert.length > 0) {
+    permissions = await knex('permissions').insert(permissionsToInsert).returning('*');
+  } else {
+    // Get existing permissions
+    permissions = await knex('permissions').select('*');
+  }
 
   // Create role-permission mappings
-  const adminRole = roles.find(r => r.name === 'admin');
-  const organizationRole = roles.find(r => r.name === 'organization');
-  const individualRole = roles.find(r => r.name === 'individual');
+  const adminRole = roles.find((r) => r.name === 'admin');
+  const organizationRole = roles.find((r) => r.name === 'organization');
+  const individualRole = roles.find((r) => r.name === 'individual');
+
+  // Check if role_permissions already exist
+  const existingRolePermissions = await knex('role_permissions')
+    .select('role_id', 'permission_id')
+    .whereIn('role_id', [
+      adminRole.public_id,
+      organizationRole.public_id,
+      individualRole.public_id,
+    ]);
+
+  const existingRolePermissionPairs = existingRolePermissions.map(
+    (rp) => `${rp.role_id}-${rp.permission_id}`
+  );
 
   const rolePermissions = [];
 
   // Admin gets all permissions
-  permissions.forEach(permission => {
-    rolePermissions.push({
-      public_id: knex.raw('gen_random_uuid()'),
-      role_id: adminRole.public_id,
-      permission_id: permission.public_id,
-    });
+  permissions.forEach((permission) => {
+    const pairKey = `${adminRole.public_id}-${permission.public_id}`;
+    if (!existingRolePermissionPairs.includes(pairKey)) {
+      rolePermissions.push({
+        public_id: knex.raw('gen_random_uuid()'),
+        role_id: adminRole.public_id,
+        permission_id: permission.public_id,
+      });
+    }
   });
 
   // Organization gets event and booking permissions
-  const orgPermissions = permissions.filter(p => 
-    p.resource === 'events' || 
-    p.resource === 'bookings' || 
-    p.resource === 'organizations' ||
-    (p.resource === 'users' && p.action === 'read')
+  const orgPermissions = permissions.filter(
+    (p) =>
+      p.resource === 'events' ||
+      p.resource === 'bookings' ||
+      p.resource === 'organizations' ||
+      (p.resource === 'users' && p.action === 'read')
   );
-  
-  orgPermissions.forEach(permission => {
-    rolePermissions.push({
-      public_id: knex.raw('gen_random_uuid()'),
-      role_id: organizationRole.public_id,
-      permission_id: permission.public_id,
-    });
+
+  orgPermissions.forEach((permission) => {
+    const pairKey = `${organizationRole.public_id}-${permission.public_id}`;
+    if (!existingRolePermissionPairs.includes(pairKey)) {
+      rolePermissions.push({
+        public_id: knex.raw('gen_random_uuid()'),
+        role_id: organizationRole.public_id,
+        permission_id: permission.public_id,
+      });
+    }
   });
 
   // Individual gets booking and payment permissions
-  const individualPermissions = permissions.filter(p => 
-    p.resource === 'bookings' || 
-    p.resource === 'payments' ||
-    (p.resource === 'users' && p.action === 'read')
+  const individualPermissions = permissions.filter(
+    (p) =>
+      p.resource === 'bookings' ||
+      p.resource === 'payments' ||
+      (p.resource === 'users' && p.action === 'read')
   );
-  
-  individualPermissions.forEach(permission => {
-    rolePermissions.push({
-      public_id: knex.raw('gen_random_uuid()'),
-      role_id: individualRole.public_id,
-      permission_id: permission.public_id,
-    });
+
+  individualPermissions.forEach((permission) => {
+    const pairKey = `${individualRole.public_id}-${permission.public_id}`;
+    if (!existingRolePermissionPairs.includes(pairKey)) {
+      rolePermissions.push({
+        public_id: knex.raw('gen_random_uuid()'),
+        role_id: individualRole.public_id,
+        permission_id: permission.public_id,
+      });
+    }
   });
 
-  await knex('role_permissions').insert(rolePermissions);
+  if (rolePermissions.length > 0) {
+    await knex('role_permissions').insert(rolePermissions);
+  }
 
   // Create default admin user
-  const bcrypt = await import('bcrypt');
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  
-  const adminUser = await knex('users').insert({
-    public_id: knex.raw('gen_random_uuid()'),
-    email: 'admin@bookingsystem.com',
-    password_hash: hashedPassword,
-    first_name: 'System',
-    last_name: 'Administrator',
-    is_active: true,
-    is_verified: true,
-    email_verified_at: new Date(),
-    auth_type: 'email',
-  }).returning('*');
+  let adminUser = await knex('users').where({ email: 'admin@bookingsystem.com' }).first();
+  if (!adminUser) {
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    [adminUser] = await knex('users')
+      .insert({
+        public_id: knex.raw('gen_random_uuid()'),
+        email: 'admin@bookingsystem.com',
+        password_hash: hashedPassword,
+        first_name: 'System',
+        last_name: 'Administrator',
+        is_active: true,
+        is_verified: true,
+        email_verified_at: new Date(),
+        auth_type: 'email',
+      })
+      .returning('*');
+  }
 
   // Assign admin role to admin user
-  await knex('user_roles').insert({
-    public_id: knex.raw('gen_random_uuid()'),
-    user_id: adminUser[0].public_id,
-    role_id: adminRole.public_id,
-  });
+  const existingUserRole = await knex('user_roles')
+    .where({ user_id: adminUser.public_id, role_id: adminRole.public_id })
+    .first();
+  if (!existingUserRole) {
+    await knex('user_roles').insert({
+      public_id: knex.raw('gen_random_uuid()'),
+      user_id: adminUser.public_id,
+      role_id: adminRole.public_id,
+    });
+  }
 
   // Create organization roles for existing organizations
   const organizations = await knex('organizations').select('*');
-  
+
   for (const org of organizations) {
     // Create default organization roles for each organization
-    const orgRoles = await knex('organization_roles').insert([
-      {
-        public_id: knex.raw('gen_random_uuid()'),
-        organization_id: org.public_id,
-        name: 'admin',
-        description: 'Organization administrator with full control',
-        permissions: JSON.stringify({
-          'organization': ['read', 'update', 'delete'],
-          'members': ['read', 'create', 'update', 'delete', 'invite'],
-          'events': ['read', 'create', 'update', 'delete'],
-          'bookings': ['read', 'create', 'update', 'delete'],
-          'analytics': ['read'],
-          'settings': ['read', 'update']
-        }),
-        hierarchy_level: 0,
-        is_default: false
-      },
-      {
-        public_id: knex.raw('gen_random_uuid()'),
-        organization_id: org.public_id,
-        name: 'manager',
-        description: 'Event manager with event and booking management',
-        permissions: JSON.stringify({
-          'organization': ['read'],
-          'members': ['read', 'invite'],
-          'events': ['read', 'create', 'update', 'delete'],
-          'bookings': ['read', 'create', 'update', 'delete'],
-          'analytics': ['read'],
-          'settings': ['read']
-        }),
-        hierarchy_level: 10,
-        is_default: false
-      },
-      {
-        public_id: knex.raw('gen_random_uuid()'),
-        organization_id: org.public_id,
-        name: 'member',
-        description: 'Organization member with basic access',
-        permissions: JSON.stringify({
-          'organization': ['read'],
-          'events': ['read', 'create'],
-          'bookings': ['read', 'create'],
-          'analytics': ['read']
-        }),
-        hierarchy_level: 50,
-        is_default: true
-      },
-      {
-        public_id: knex.raw('gen_random_uuid()'),
-        organization_id: org.public_id,
-        name: 'viewer',
-        description: 'Read-only access to organization data',
-        permissions: JSON.stringify({
-          'organization': ['read'],
-          'events': ['read'],
-          'bookings': ['read'],
-          'analytics': ['read']
-        }),
-        hierarchy_level: 100,
-        is_default: false
-      }
-    ]).returning('*');
+    const orgRoles = await knex('organization_roles')
+      .insert([
+        {
+          public_id: knex.raw('gen_random_uuid()'),
+          organization_id: org.public_id,
+          name: 'admin',
+          description: 'Organization administrator with full control',
+          permissions: JSON.stringify({
+            organization: ['read', 'update', 'delete'],
+            members: ['read', 'create', 'update', 'delete', 'invite'],
+            events: ['read', 'create', 'update', 'delete'],
+            bookings: ['read', 'create', 'update', 'delete'],
+            analytics: ['read'],
+            settings: ['read', 'update'],
+          }),
+          hierarchy_level: 0,
+          is_default: false,
+        },
+        {
+          public_id: knex.raw('gen_random_uuid()'),
+          organization_id: org.public_id,
+          name: 'manager',
+          description: 'Event manager with event and booking management',
+          permissions: JSON.stringify({
+            organization: ['read'],
+            members: ['read', 'invite'],
+            events: ['read', 'create', 'update', 'delete'],
+            bookings: ['read', 'create', 'update', 'delete'],
+            analytics: ['read'],
+            settings: ['read'],
+          }),
+          hierarchy_level: 10,
+          is_default: false,
+        },
+        {
+          public_id: knex.raw('gen_random_uuid()'),
+          organization_id: org.public_id,
+          name: 'member',
+          description: 'Organization member with basic access',
+          permissions: JSON.stringify({
+            organization: ['read'],
+            events: ['read', 'create'],
+            bookings: ['read', 'create'],
+            analytics: ['read'],
+          }),
+          hierarchy_level: 50,
+          is_default: true,
+        },
+        {
+          public_id: knex.raw('gen_random_uuid()'),
+          organization_id: org.public_id,
+          name: 'viewer',
+          description: 'Read-only access to organization data',
+          permissions: JSON.stringify({
+            organization: ['read'],
+            events: ['read'],
+            bookings: ['read'],
+            analytics: ['read'],
+          }),
+          hierarchy_level: 100,
+          is_default: false,
+        },
+      ])
+      .returning('*');
 
     // Get the organization owner (user who created the organization)
     const orgOwner = await knex('users').where('public_id', org.user_id).first();
-    
+
     if (orgOwner) {
       // Find admin role
-      const adminRole = orgRoles.find(r => r.name === 'admin');
-      
+      const adminRole = orgRoles.find((r) => r.name === 'admin');
+
       // Add organization owner as admin member
       await knex('organization_members').insert({
         public_id: knex.raw('gen_random_uuid()'),
@@ -330,7 +391,7 @@ export async function seed(knex) {
         role_id: adminRole.public_id,
         status: 'active',
         joined_at: org.created_at,
-        last_active_at: new Date()
+        last_active_at: new Date(),
       });
     }
   }
@@ -348,4 +409,4 @@ export async function down(knex) {
   await knex('users').del();
   await knex('permissions').del();
   await knex('roles').del();
-} 
+}

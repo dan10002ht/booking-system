@@ -1,24 +1,29 @@
 import { v4 as uuidv4 } from 'uuid';
-import UserRepository from '../repositories/userRepository.js';
-import { checkDatabaseHealth } from '../config/databaseConfig.js';
-import { generateTokens, verifyAccessToken, verifyRefreshToken } from '../utils/tokenUtils.js';
-import { validateRegistration, validatePasswordChange } from '../utils/validations.js';
+import {
+  getUserRepository,
+  getOAuthAccountRepository,
+} from '../../repositories/repositoryFactory.js';
+import { checkDatabaseHealth } from '../../config/databaseConfig.js';
+import { generateTokens, verifyAccessToken, verifyRefreshToken } from '../../utils/tokenUtils.js';
+import { validateRegistration, validatePasswordChange } from '../../utils/validations.js';
 import {
   sanitizeUserInput,
   sanitizeUserForResponse,
   sanitizeSessionData,
-} from '../utils/sanitizers.js';
+} from '../../utils/sanitizers.js';
 import * as organizationManagementService from './organizationManagementService.js';
+import * as oauthService from './oauthService.js';
 
-// Initialize user repository (singleton pattern)
-const userRepository = new UserRepository();
+// Get repository instances from factory
+const userRepository = getUserRepository();
+const oauthAccountRepository = getOAuthAccountRepository();
 
 // ========== REGISTRATION & LOGIN ==========
 
 /**
- * Register new user
+ * Register new user with email and password
  */
-export async function register(userData) {
+export async function registerWithEmail(userData) {
   try {
     const validation = validateRegistration(userData);
     if (!validation.isValid) {
@@ -27,11 +32,13 @@ export async function register(userData) {
 
     const sanitizedData = sanitizeUserInput(userData);
 
+    // Check if email already exists
     const existingUser = await userRepository.findByEmail(sanitizedData.email);
     if (existingUser) {
       throw new Error('Email is already in use');
     }
 
+    // Check if username already exists (if provided)
     if (sanitizedData.username) {
       const existingUsername = await userRepository.findByUsername(sanitizedData.username);
       if (existingUsername) {
@@ -39,8 +46,10 @@ export async function register(userData) {
       }
     }
 
+    // Create user with email authentication
     const newUser = await userRepository.createUser({
       ...sanitizedData,
+      auth_type: 'email',
       status: 'active',
       role: sanitizedData.role || 'user',
     });
@@ -60,6 +69,7 @@ export async function register(userData) {
       }
     }
 
+    // Generate tokens and create session
     const tokens = generateTokens(newUser.id, {
       email: newUser.email,
       role: newUser.role,
@@ -78,10 +88,162 @@ export async function register(userData) {
       organization: organization,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
+      authType: 'email',
     };
   } catch (error) {
-    throw new Error(`Registration failed: ${error.message}`);
+    throw new Error(`Email registration failed: ${error.message}`);
   }
+}
+
+/**
+ * Register new user with OAuth (Google, Facebook, etc.)
+ */
+export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
+  try {
+    const sanitizedSessionData = sanitizeSessionData(sessionData);
+
+    // Verify OAuth token and get user info from provider
+    const oauthUserInfo = await oauthService.verifyOAuthToken(provider, oauthData.token);
+
+    if (!oauthUserInfo) {
+      throw new Error(`Invalid ${provider} token`);
+    }
+
+    // Check if OAuth account already exists
+    const existingOAuthAccount = await oauthAccountRepository.findByProvider(
+      provider,
+      oauthUserInfo.provider_user_id
+    );
+
+    if (existingOAuthAccount) {
+      // OAuth account exists - login existing user
+      const existingUser = await userRepository.findById(existingOAuthAccount.user_id);
+
+      if (!existingUser || existingUser.status !== 'active') {
+        throw new Error('Account is locked or not activated');
+      }
+
+      // Update OAuth tokens
+      await oauthAccountRepository.updateOAuthAccount(existingOAuthAccount.id, {
+        access_token: oauthData.access_token,
+        refresh_token: oauthData.refresh_token,
+        expires_at: oauthData.expires_at ? new Date(oauthData.expires_at * 1000) : null,
+      });
+
+      // Generate tokens and create session
+      const tokens = generateTokens(existingUser.id, {
+        email: existingUser.email,
+        role: existingUser.role,
+      });
+
+      await userRepository.createUserSession(existingUser.id, {
+        session_id: uuidv4(),
+        refresh_token: tokens.refreshToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ip_address: sanitizedSessionData.ip_address,
+        user_agent: sanitizedSessionData.user_agent,
+      });
+
+      return {
+        user: sanitizeUserForResponse(existingUser),
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        authType: 'oauth',
+        isNewUser: false,
+      };
+    }
+
+    // Check if email from OAuth already exists in our system
+    const existingUserByEmail = await userRepository.findByEmail(oauthUserInfo.email);
+
+    if (existingUserByEmail) {
+      // Email exists but not linked to this OAuth provider
+      // Link OAuth account to existing user
+      await oauthAccountRepository.createOAuthAccount({
+        user_id: existingUserByEmail.id,
+        provider: provider,
+        provider_user_id: oauthUserInfo.provider_user_id,
+        access_token: oauthData.access_token,
+        refresh_token: oauthData.refresh_token,
+        expires_at: oauthData.expires_at ? new Date(oauthData.expires_at * 1000) : null,
+      });
+
+      // Generate tokens and create session
+      const tokens = generateTokens(existingUserByEmail.id, {
+        email: existingUserByEmail.email,
+        role: existingUserByEmail.role,
+      });
+
+      await userRepository.createUserSession(existingUserByEmail.id, {
+        session_id: uuidv4(),
+        refresh_token: tokens.refreshToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ip_address: sanitizedSessionData.ip_address,
+        user_agent: sanitizedSessionData.user_agent,
+      });
+
+      return {
+        user: sanitizeUserForResponse(existingUserByEmail),
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        authType: 'oauth',
+        isNewUser: false,
+        message: `Linked ${provider} account to existing email`,
+      };
+    }
+
+    // Create new user with OAuth
+    const newUser = await userRepository.createUser({
+      email: oauthUserInfo.email,
+      first_name: oauthUserInfo.first_name || '',
+      last_name: oauthUserInfo.last_name || '',
+      auth_type: 'oauth',
+      status: 'active',
+      role: 'user',
+      email_verified_at: new Date(), // OAuth emails are pre-verified
+    });
+
+    // Create OAuth account
+    await oauthAccountRepository.createOAuthAccount({
+      user_id: newUser.id,
+      provider: provider,
+      provider_user_id: oauthUserInfo.provider_user_id,
+      access_token: oauthData.access_token,
+      refresh_token: oauthData.refresh_token,
+      expires_at: oauthData.expires_at ? new Date(oauthData.expires_at * 1000) : null,
+    });
+
+    // Generate tokens and create session
+    const tokens = generateTokens(newUser.id, {
+      email: newUser.email,
+      role: newUser.role,
+    });
+
+    await userRepository.createUserSession(newUser.id, {
+      session_id: uuidv4(),
+      refresh_token: tokens.refreshToken,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      ip_address: sanitizedSessionData.ip_address,
+      user_agent: sanitizedSessionData.user_agent,
+    });
+
+    return {
+      user: sanitizeUserForResponse(newUser),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      authType: 'oauth',
+      isNewUser: true,
+    };
+  } catch (error) {
+    throw new Error(`${provider} registration failed: ${error.message}`);
+  }
+}
+
+/**
+ * Legacy register function - redirects to registerWithEmail for backward compatibility
+ */
+export async function register(userData) {
+  return await registerWithEmail(userData);
 }
 
 /**

@@ -19,7 +19,7 @@ export const initializeRoutes = (app, swaggerSpec) => {
   app.use('/health', healthRoutes);
 
   // API documentation
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   // API routes with authentication middleware
   app.use('/api/auth', authRoutes);

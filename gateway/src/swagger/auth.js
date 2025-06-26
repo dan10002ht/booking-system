@@ -24,6 +24,28 @@
  *         lastName:
  *           type: string
  *           description: User last name
+ *     OAuthRegistration:
+ *       type: object
+ *       required:
+ *         - provider
+ *         - token
+ *       properties:
+ *         provider:
+ *           type: string
+ *           enum: [google, facebook, github]
+ *           description: OAuth provider
+ *         token:
+ *           type: string
+ *           description: OAuth token from provider
+ *         access_token:
+ *           type: string
+ *           description: OAuth access token
+ *         refresh_token:
+ *           type: string
+ *           description: OAuth refresh token
+ *         expires_at:
+ *           type: integer
+ *           description: Token expiration timestamp
  *     UserLogin:
  *       type: object
  *       required:
@@ -57,14 +79,21 @@
  *         expiresIn:
  *           type: integer
  *           description: Token expiration time in seconds
+ *         authType:
+ *           type: string
+ *           enum: [email, oauth]
+ *           description: Authentication type
+ *         isNewUser:
+ *           type: boolean
+ *           description: Whether this is a new user (for OAuth)
  */
 
 /**
  * @swagger
- * /auth/register:
+ * /auth/register/email:
  *   post:
- *     summary: Register a new user
- *     description: Create a new user account
+ *     summary: Register a new user with email and password
+ *     description: Create a new user account using email and password
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -78,22 +107,37 @@
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "User registered successfully"
- *                 user:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     email:
- *                       type: string
+ *               $ref: '#/components/schemas/AuthResponse'
  *       400:
  *         description: Validation error
  *       409:
  *         description: User already exists
+ */
+
+/**
+ * @swagger
+ * /auth/register/oauth:
+ *   post:
+ *     summary: Register a new user with OAuth
+ *     description: Create a new user account using OAuth provider (Google, Facebook, GitHub)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OAuthRegistration'
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid OAuth token
  */
 
 /**

@@ -1,6 +1,85 @@
 version: "3.8"
 
 services:
+  # Master PostgreSQL instance
+  postgres-master:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system_auth
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_master_data:/var/lib/postgresql/data
+      - ./postgres-master-init:/docker-entrypoint-initdb.d
+    networks:
+      - booking-net
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+      -c hot_standby=on
+      -c archive_mode=on
+      -c archive_command='test ! -f /var/lib/postgresql/backup_in_progress && (test ! -f /var/lib/postgresql/archive/%f || cp %p /var/lib/postgresql/archive/%f)'
+      -c archive_timeout=60
+
+  # Slave PostgreSQL instance 1
+  postgres-slave1:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system_auth
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+      POSTGRES_MASTER_HOST: postgres-master
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_MASTER_USER: booking_user
+      POSTGRES_MASTER_PASSWORD: booking_pass
+    ports:
+      - "55433:5432"
+    volumes:
+      - postgres_slave1_data:/var/lib/postgresql/data
+      - ./postgres-slave-init:/docker-entrypoint-initdb.d
+    networks:
+      - booking-net
+    depends_on:
+      - postgres-master
+    command: >
+      postgres
+      -c hot_standby=on
+      -c primary_conninfo='host=postgres-master port=5432 user=booking_user password=booking_pass'
+      -c restore_command='cp /var/lib/postgresql/archive/%f %p'
+      -c recovery_target_timeline='latest'
+
+  # Slave PostgreSQL instance 2 (optional)
+  postgres-slave2:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system_auth
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+      POSTGRES_MASTER_HOST: postgres-master
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_MASTER_USER: booking_user
+      POSTGRES_MASTER_PASSWORD: booking_pass
+    ports:
+      - "55434:5432"
+    volumes:
+      - postgres_slave2_data:/var/lib/postgresql/data
+      - ./postgres-slave-init:/docker-entrypoint-initdb.d
+    networks:
+      - booking-net
+    depends_on:
+      - postgres-master
+    command: >
+      postgres
+      -c hot_standby=on
+      -c primary_conninfo='host=postgres-master port=5432 user=booking_user password=booking_pass'
+      -c restore_command='cp /var/lib/postgresql/archive/%f %p'
+      -c recovery_target_timeline='latest'
+
+  # Legacy single postgres instance (for backward compatibility)
   postgres:
     image: postgres:15
     environment:
@@ -8,7 +87,7 @@ services:
       POSTGRES_USER: booking_user
       POSTGRES_PASSWORD: booking_pass
     ports:
-      - "55432:5432"
+      - "55435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -122,6 +201,9 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres_master_data:
+  postgres_slave1_data:
+  postgres_slave2_data:
   postgres_data:
   redis_data:
   grafana_data:

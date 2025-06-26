@@ -10,6 +10,7 @@ export {
   validateRegistration,
   validateLogin,
   validateRefreshToken,
+  validateOAuthRegistration,
   validateProfileUpdate,
   validatePasswordChange,
   validateBooking,

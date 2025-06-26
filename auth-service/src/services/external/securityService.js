@@ -17,7 +17,7 @@ try {
     longs: String,
     enums: String,
     defaults: true,
-    oneofs: true
+    oneofs: true,
   });
   securityProto = grpc.loadPackageDefinition(packageDefinition).security;
 } catch (error) {
@@ -40,7 +40,7 @@ const createSecurityClient = () => {
       securityServiceUrl,
       grpc.credentials.createInsecure()
     );
-    
+
     return client;
   } catch (error) {
     logger.error('Failed to create security client:', error);
@@ -74,7 +74,7 @@ export const submitEvent = async (eventData) => {
       event_data: JSON.stringify(eventData.event_data),
       ip_address: eventData.ip_address,
       user_agent: eventData.user_agent || '',
-      location_data: eventData.location_data ? JSON.stringify(eventData.location_data) : '{}'
+      location_data: eventData.location_data ? JSON.stringify(eventData.location_data) : '{}',
     };
 
     return new Promise((resolve, reject) => {
@@ -88,7 +88,6 @@ export const submitEvent = async (eventData) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error submitting security event:', error);
     return { success: false, message: error.message };
@@ -105,7 +104,7 @@ export const getUserRiskScore = async (userId) => {
     }
 
     const request = {
-      user_id: userId
+      user_id: userId,
     };
 
     return new Promise((resolve, reject) => {
@@ -119,7 +118,6 @@ export const getUserRiskScore = async (userId) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting user risk score:', error);
     return { success: false, risk_score: 0, risk_level: 'unknown' };
@@ -138,7 +136,7 @@ export const updateUserRiskScore = async (userId, riskScore, reason) => {
     const request = {
       user_id: userId,
       risk_score: riskScore,
-      reason: reason
+      reason: reason,
     };
 
     return new Promise((resolve, reject) => {
@@ -152,7 +150,6 @@ export const updateUserRiskScore = async (userId, riskScore, reason) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error updating user risk score:', error);
     return { success: false, message: error.message };
@@ -173,7 +170,7 @@ export const detectThreat = async (userId, eventType, eventData, ipAddress, user
       event_type: eventType,
       event_data: JSON.stringify(eventData),
       ip_address: ipAddress,
-      user_agent: userAgent
+      user_agent: userAgent,
     };
 
     return new Promise((resolve, reject) => {
@@ -187,7 +184,6 @@ export const detectThreat = async (userId, eventType, eventData, ipAddress, user
         }
       });
     });
-
   } catch (error) {
     logger.error('Error detecting threat:', error);
     return { success: false, threat_detected: false, message: error.message };
@@ -207,7 +203,7 @@ export const getThreatPatterns = async (userId, patternType, startDate, endDate)
       user_id: userId,
       pattern_type: patternType,
       start_date: startDate,
-      end_date: endDate
+      end_date: endDate,
     };
 
     return new Promise((resolve, reject) => {
@@ -221,7 +217,6 @@ export const getThreatPatterns = async (userId, patternType, startDate, endDate)
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting threat patterns:', error);
     return { success: false, patterns: [] };
@@ -243,7 +238,7 @@ export const createAlert = async (userId, alertType, severity, title, descriptio
       severity: severity,
       title: title,
       description: description,
-      source: source
+      source: source,
     };
 
     return new Promise((resolve, reject) => {
@@ -257,7 +252,6 @@ export const createAlert = async (userId, alertType, severity, title, descriptio
         }
       });
     });
-
   } catch (error) {
     logger.error('Error creating security alert:', error);
     return { success: false, message: error.message };
@@ -278,7 +272,7 @@ export const getAlerts = async (userId, status, severity, page = 1, limit = 10) 
       status: status,
       severity: severity,
       page: page,
-      limit: limit
+      limit: limit,
     };
 
     return new Promise((resolve, reject) => {
@@ -292,7 +286,6 @@ export const getAlerts = async (userId, status, severity, page = 1, limit = 10) 
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting security alerts:', error);
     return { success: false, alerts: [] };
@@ -311,7 +304,7 @@ export const updateAlert = async (alertId, status, notes) => {
     const request = {
       alert_id: alertId,
       status: status,
-      notes: notes
+      notes: notes,
     };
 
     return new Promise((resolve, reject) => {
@@ -325,7 +318,6 @@ export const updateAlert = async (alertId, status, notes) => {
         }
       });
     });
-
   } catch (error) {
     logger.error('Error updating security alert:', error);
     return { success: false, message: error.message };
@@ -333,7 +325,16 @@ export const updateAlert = async (alertId, status, notes) => {
 };
 
 // Get security events
-export const getSecurityEvents = async (userId, serviceName, eventType, severity, startDate, endDate, page = 1, limit = 10) => {
+export const getSecurityEvents = async (
+  userId,
+  serviceName,
+  eventType,
+  severity,
+  startDate,
+  endDate,
+  page = 1,
+  limit = 10
+) => {
   try {
     const client = initSecurityClient();
     if (!client) {
@@ -349,7 +350,7 @@ export const getSecurityEvents = async (userId, serviceName, eventType, severity
       start_date: startDate,
       end_date: endDate,
       page: page,
-      limit: limit
+      limit: limit,
     };
 
     return new Promise((resolve, reject) => {
@@ -363,7 +364,6 @@ export const getSecurityEvents = async (userId, serviceName, eventType, severity
         }
       });
     });
-
   } catch (error) {
     logger.error('Error getting security events:', error);
     return { success: false, events: [] };
@@ -387,7 +387,6 @@ export const health = async () => {
         }
       });
     });
-
   } catch (error) {
     return { status: 'error', error: error.message };
   }
@@ -403,5 +402,5 @@ export const securityService = {
   getAlerts,
   updateAlert,
   getSecurityEvents,
-  health
-}; 
+  health,
+};

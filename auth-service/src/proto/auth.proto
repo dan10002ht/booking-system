@@ -5,6 +5,8 @@ package auth;
 service AuthService {
   // User authentication
   rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc RegisterWithEmail(RegisterWithEmailRequest) returns (RegisterResponse);
+  rpc RegisterWithOAuth(RegisterWithOAuthRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc OAuthLogin(OAuthLoginRequest) returns (LoginResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
@@ -42,6 +44,29 @@ message RegisterRequest {
   OrganizationData organization = 7;
 }
 
+message RegisterWithEmailRequest {
+  string email = 1;
+  string password = 2;
+  string username = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string phone = 6;
+  string role = 7; // "user", "organization", "admin"
+  OrganizationData organization = 8;
+  string ip_address = 9;
+  string user_agent = 10;
+}
+
+message RegisterWithOAuthRequest {
+  string provider = 1; // "google", "facebook", "github"
+  string token = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  int64 expires_at = 5;
+  string ip_address = 6;
+  string user_agent = 7;
+}
+
 message OrganizationData {
   string name = 1;
   string description = 2;
@@ -63,6 +88,11 @@ message RegisterResponse {
   bool success = 1;
   string message = 2;
   User user = 3;
+  string access_token = 4;
+  string refresh_token = 5;
+  string auth_type = 6; // "email" or "oauth"
+  bool is_new_user = 7; // true for new OAuth users
+  OrganizationData organization = 8;
 }
 
 message LoginRequest {

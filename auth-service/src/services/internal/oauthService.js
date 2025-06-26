@@ -1,12 +1,14 @@
-import UserRepository from '../repositories/userRepository.js';
-import OAuthAccountRepository from '../repositories/oauthAccountRepository.js';
-import { generateTokens } from '../utils/tokenUtils.js';
-import { sanitizeUserForResponse } from '../utils/sanitizers.js';
+import {
+  getUserRepository,
+  getOAuthAccountRepository,
+} from '../../repositories/repositoryFactory.js';
+import { generateTokens } from '../../utils/tokenUtils.js';
+import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 import { v4 as uuidv4 } from 'uuid';
 
-// Initialize repositories
-const userRepository = new UserRepository();
-const oauthAccountRepository = new OAuthAccountRepository();
+// Get repository instances from factory
+const userRepository = getUserRepository();
+const oauthAccountRepository = getOAuthAccountRepository();
 
 // ========== OAUTH LOGIN ==========
 
@@ -198,5 +200,144 @@ export async function getUserOAuthAccounts(userId) {
     }));
   } catch (error) {
     throw new Error(`Failed to get OAuth accounts: ${error.message}`);
+  }
+}
+
+// ========== OAUTH TOKEN VERIFICATION ==========
+
+/**
+ * Verify OAuth token and get user info from provider
+ */
+export async function verifyOAuthToken(provider, token) {
+  try {
+    switch (provider.toLowerCase()) {
+      case 'google':
+        return await verifyGoogleToken(token);
+      case 'facebook':
+        return await verifyFacebookToken(token);
+      case 'github':
+        return await verifyGithubToken(token);
+      default:
+        throw new Error(`Unsupported OAuth provider: ${provider}`);
+    }
+  } catch (error) {
+    throw new Error(`OAuth token verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Verify Google OAuth token
+ */
+async function verifyGoogleToken(token) {
+  try {
+    // In a real implementation, you would call Google's API
+    // For now, we'll simulate the verification
+    const response = await fetch(
+      `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Invalid Google token');
+    }
+
+    // Get user info from Google
+    const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!userInfoResponse.ok) {
+      throw new Error('Failed to get user info from Google');
+    }
+
+    const userInfo = await userInfoResponse.json();
+
+    return {
+      provider_user_id: userInfo.id,
+      email: userInfo.email,
+      first_name: userInfo.given_name || '',
+      last_name: userInfo.family_name || '',
+      picture: userInfo.picture,
+      verified_email: userInfo.verified_email,
+    };
+  } catch (error) {
+    throw new Error(`Google token verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Verify Facebook OAuth token
+ */
+async function verifyFacebookToken(token) {
+  try {
+    // In a real implementation, you would call Facebook's API
+    const response = await fetch(
+      `https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,picture&access_token=${token}`
+    );
+
+    if (!response.ok) {
+      throw new Error('Invalid Facebook token');
+    }
+
+    const userInfo = await response.json();
+
+    return {
+      provider_user_id: userInfo.id,
+      email: userInfo.email,
+      first_name: userInfo.first_name || '',
+      last_name: userInfo.last_name || '',
+      picture: userInfo.picture?.data?.url,
+      verified_email: true, // Facebook emails are generally verified
+    };
+  } catch (error) {
+    throw new Error(`Facebook token verification failed: ${error.message}`);
+  }
+}
+
+/**
+ * Verify GitHub OAuth token
+ */
+async function verifyGithubToken(token) {
+  try {
+    // In a real implementation, you would call GitHub's API
+    const response = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Invalid GitHub token');
+    }
+
+    const userInfo = await response.json();
+
+    // Get user email from GitHub
+    const emailResponse = await fetch('https://api.github.com/user/emails', {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+
+    let email = '';
+    if (emailResponse.ok) {
+      const emails = await emailResponse.json();
+      const primaryEmail = emails.find((e) => e.primary);
+      email = primaryEmail ? primaryEmail.email : emails[0]?.email || '';
+    }
+
+    return {
+      provider_user_id: userInfo.id.toString(),
+      email: email,
+      first_name: userInfo.name?.split(' ')[0] || '',
+      last_name: userInfo.name?.split(' ').slice(1).join(' ') || '',
+      picture: userInfo.avatar_url,
+      verified_email: true, // GitHub emails are generally verified
+    };
+  } catch (error) {
+    throw new Error(`GitHub token verification failed: ${error.message}`);
   }
 }

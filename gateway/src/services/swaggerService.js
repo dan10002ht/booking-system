@@ -32,11 +32,11 @@ export const initializeSwagger = () => {
       },
       servers: [
         {
-          url: `http://localhost:${config.server.port}`,
+          url: `http://localhost:${config.server.port}/api`,
           description: 'Development server',
         },
         {
-          url: 'https://api.bookingsystem.com',
+          url: 'https://api.bookingsystem.com/api',
           description: 'Production server',
         },
       ],

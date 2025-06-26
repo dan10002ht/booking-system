@@ -224,3 +224,29 @@ export const validateUserAddressUpdate = [
     .isLength({ max: 100 })
     .withMessage('Country must not exceed 100 characters'),
 ];
+
+/**
+ * Validation middleware for OAuth registration
+ */
+export const validateOAuthRegistration = [
+  body('provider')
+    .isIn(['google', 'facebook', 'github'])
+    .withMessage('Provider must be one of: google, facebook, github'),
+  body('token')
+    .notEmpty()
+    .withMessage('OAuth token is required')
+    .isLength({ min: 10 })
+    .withMessage('OAuth token must be at least 10 characters long'),
+  body('access_token')
+    .optional()
+    .isLength({ min: 10 })
+    .withMessage('Access token must be at least 10 characters long'),
+  body('refresh_token')
+    .optional()
+    .isLength({ min: 10 })
+    .withMessage('Refresh token must be at least 10 characters long'),
+  body('expires_at')
+    .optional()
+    .isInt({ min: Date.now() })
+    .withMessage('Expires at must be a valid future timestamp'),
+];

@@ -34,7 +34,12 @@ export async function up(knex) {
   await knex.schema.createTable('organizations', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('name', 255).notNullable();
     table.text('description');
     table.text('website_url');
@@ -59,7 +64,12 @@ export async function up(knex) {
   await knex.schema.createTable('oauth_accounts', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('provider', 50).notNullable(); // 'google', 'facebook', etc.
     table.string('provider_user_id', 255).notNullable();
     table.text('access_token');
@@ -97,8 +107,18 @@ export async function up(knex) {
   await knex.schema.createTable('user_roles', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
-    table.uuid('role_id').notNullable().references('public_id').inTable('roles').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
+    table
+      .uuid('role_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('roles')
+      .onDelete('CASCADE');
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.unique(['user_id', 'role_id']);
   });
@@ -107,8 +127,18 @@ export async function up(knex) {
   await knex.schema.createTable('role_permissions', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('role_id').notNullable().references('public_id').inTable('roles').onDelete('CASCADE');
-    table.uuid('permission_id').notNullable().references('public_id').inTable('permissions').onDelete('CASCADE');
+    table
+      .uuid('role_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('roles')
+      .onDelete('CASCADE');
+    table
+      .uuid('permission_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('permissions')
+      .onDelete('CASCADE');
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.unique(['role_id', 'permission_id']);
   });
@@ -116,7 +146,12 @@ export async function up(knex) {
   // Create refresh_tokens table - Internal only (performance critical)
   await knex.schema.createTable('refresh_tokens', (table) => {
     table.bigIncrements('id').primary(); // Auto increment for performance
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('token_hash', 255).unique().notNullable();
     table.timestamp('expires_at').notNullable();
     table.boolean('is_revoked').defaultTo(false);
@@ -127,7 +162,12 @@ export async function up(knex) {
   // Create password_reset_tokens table - Internal only (performance critical)
   await knex.schema.createTable('password_reset_tokens', (table) => {
     table.bigIncrements('id').primary(); // Auto increment for performance
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('token_hash', 255).unique().notNullable();
     table.timestamp('expires_at').notNullable();
     table.boolean('is_used').defaultTo(false);
@@ -137,7 +177,12 @@ export async function up(knex) {
   // Create email_verification_tokens table - Internal only (performance critical)
   await knex.schema.createTable('email_verification_tokens', (table) => {
     table.bigIncrements('id').primary(); // Auto increment for performance
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('token_hash', 255).unique().notNullable();
     table.timestamp('expires_at').notNullable();
     table.boolean('is_used').defaultTo(false);
@@ -147,9 +192,14 @@ export async function up(knex) {
   // Create user_sessions table - Internal only (performance critical)
   await knex.schema.createTable('user_sessions', (table) => {
     table.bigIncrements('id').primary(); // Auto increment for performance
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.string('session_id', 255).unique().notNullable();
-    table.inet('ip_address');
+    table.string('ip_address', 45); // Changed from table.inet to table.string for IPv4/IPv6
     table.text('user_agent');
     table.timestamp('expires_at').notNullable();
     table.boolean('is_active').defaultTo(true);
@@ -166,7 +216,7 @@ export async function up(knex) {
     table.uuid('resource_id');
     table.jsonb('old_values');
     table.jsonb('new_values');
-    table.inet('ip_address');
+    table.string('ip_address', 45); // Changed from table.inet to table.string for IPv4/IPv6
     table.text('user_agent');
     table.timestamp('created_at').defaultTo(knex.fn.now());
   });
@@ -175,7 +225,12 @@ export async function up(knex) {
   await knex.schema.createTable('organization_roles', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('organization_id').notNullable().references('public_id').inTable('organizations').onDelete('CASCADE');
+    table
+      .uuid('organization_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('organizations')
+      .onDelete('CASCADE');
     table.string('name', 50).notNullable(); // 'admin', 'manager', 'member', 'viewer'
     table.text('description');
     table.jsonb('permissions'); // Organization-specific permissions
@@ -189,9 +244,24 @@ export async function up(knex) {
   await knex.schema.createTable('organization_members', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('organization_id').notNullable().references('public_id').inTable('organizations').onDelete('CASCADE');
-    table.uuid('user_id').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
-    table.uuid('role_id').notNullable().references('public_id').inTable('organization_roles').onDelete('CASCADE');
+    table
+      .uuid('organization_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('organizations')
+      .onDelete('CASCADE');
+    table
+      .uuid('user_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
+    table
+      .uuid('role_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('organization_roles')
+      .onDelete('CASCADE');
     table.string('status', 20).defaultTo('active'); // 'active', 'pending', 'suspended'
     table.timestamp('joined_at').defaultTo(knex.fn.now());
     table.timestamp('last_active_at');
@@ -204,13 +274,28 @@ export async function up(knex) {
   await knex.schema.createTable('organization_invitations', (table) => {
     table.bigIncrements('internal_id').primary(); // Internal ID for performance
     table.uuid('public_id').unique().notNullable().defaultTo(knex.raw('gen_random_uuid()')); // Public ID for API
-    table.uuid('organization_id').notNullable().references('public_id').inTable('organizations').onDelete('CASCADE');
+    table
+      .uuid('organization_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('organizations')
+      .onDelete('CASCADE');
     table.string('email', 255).notNullable();
-    table.uuid('role_id').notNullable().references('public_id').inTable('organization_roles').onDelete('CASCADE');
+    table
+      .uuid('role_id')
+      .notNullable()
+      .references('public_id')
+      .inTable('organization_roles')
+      .onDelete('CASCADE');
     table.string('token_hash', 255).unique().notNullable();
     table.timestamp('expires_at').notNullable();
     table.boolean('is_accepted').defaultTo(false);
-    table.uuid('invited_by').notNullable().references('public_id').inTable('users').onDelete('CASCADE');
+    table
+      .uuid('invited_by')
+      .notNullable()
+      .references('public_id')
+      .inTable('users')
+      .onDelete('CASCADE');
     table.timestamp('created_at').defaultTo(knex.fn.now());
   });
 
@@ -229,7 +314,9 @@ export async function up(knex) {
   await knex.schema.raw('CREATE INDEX idx_oauth_accounts_public_id ON oauth_accounts(public_id)');
   await knex.schema.raw('CREATE INDEX idx_oauth_accounts_user_id ON oauth_accounts(user_id)');
   await knex.schema.raw('CREATE INDEX idx_oauth_accounts_provider ON oauth_accounts(provider)');
-  await knex.schema.raw('CREATE INDEX idx_oauth_accounts_provider_user_id ON oauth_accounts(provider, provider_user_id)');
+  await knex.schema.raw(
+    'CREATE INDEX idx_oauth_accounts_provider_user_id ON oauth_accounts(provider, provider_user_id)'
+  );
 
   await knex.schema.raw('CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id)');
   await knex.schema.raw('CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at)');
@@ -243,20 +330,44 @@ export async function up(knex) {
   await knex.schema.raw('CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at)');
   await knex.schema.raw('CREATE INDEX idx_audit_logs_action ON audit_logs(action)');
 
-  await knex.schema.raw('CREATE INDEX idx_permissions_resource_action ON permissions(resource, action)');
+  await knex.schema.raw(
+    'CREATE INDEX idx_permissions_resource_action ON permissions(resource, action)'
+  );
 
   // Organization indexes
-  await knex.schema.raw('CREATE INDEX idx_organization_roles_public_id ON organization_roles(public_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_roles_org_id ON organization_roles(organization_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_roles_hierarchy ON organization_roles(hierarchy_level)');
-  await knex.schema.raw('CREATE INDEX idx_organization_members_public_id ON organization_members(public_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_members_org_id ON organization_members(organization_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_members_user_id ON organization_members(user_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_members_status ON organization_members(status)');
-  await knex.schema.raw('CREATE INDEX idx_organization_invitations_public_id ON organization_invitations(public_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_invitations_org_id ON organization_invitations(organization_id)');
-  await knex.schema.raw('CREATE INDEX idx_organization_invitations_email ON organization_invitations(email)');
-  await knex.schema.raw('CREATE INDEX idx_organization_invitations_expires ON organization_invitations(expires_at)');
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_roles_public_id ON organization_roles(public_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_roles_org_id ON organization_roles(organization_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_roles_hierarchy ON organization_roles(hierarchy_level)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_members_public_id ON organization_members(public_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_members_org_id ON organization_members(organization_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_members_user_id ON organization_members(user_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_members_status ON organization_members(status)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_invitations_public_id ON organization_invitations(public_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_invitations_org_id ON organization_invitations(organization_id)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_invitations_email ON organization_invitations(email)'
+  );
+  await knex.schema.raw(
+    'CREATE INDEX idx_organization_invitations_expires ON organization_invitations(expires_at)'
+  );
 }
 
 /**
@@ -279,4 +390,4 @@ export async function down(knex) {
   await knex.schema.dropTableIfExists('oauth_accounts');
   await knex.schema.dropTableIfExists('organizations');
   await knex.schema.dropTableIfExists('users');
-} 
+}

@@ -1,12 +1,14 @@
-import UserRepository from '../repositories/userRepository.js';
-import RoleRepository from '../repositories/roleRepository.js';
-import PermissionRepository from '../repositories/permissionRepository.js';
-import { sanitizeUserForResponse } from '../utils/sanitizers.js';
+import {
+  getUserRepository,
+  getRoleRepository,
+  getPermissionRepository,
+} from '../../repositories/repositoryFactory.js';
+import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 
-// Initialize repositories
-const userRepository = new UserRepository();
-const roleRepository = new RoleRepository();
-const permissionRepository = new PermissionRepository();
+// Get repository instances from factory
+const userRepository = getUserRepository();
+const roleRepository = getRoleRepository();
+const permissionRepository = getPermissionRepository();
 
 // ========== USER PERMISSIONS ==========
 

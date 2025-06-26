@@ -56,34 +56,38 @@ const slaveConfigs = [
     },
   },
   // Có thể thêm nhiều slave khác ở đây
-  ...(process.env.DB_SLAVE2_HOST ? [{
-    client: 'postgresql',
-    connection: {
-      host: process.env.DB_SLAVE2_HOST,
-      port: process.env.DB_SLAVE2_PORT || 5432,
-      database: process.env.DB_SLAVE2_NAME || process.env.DB_NAME || 'booking_system_auth',
-      user: process.env.DB_SLAVE2_USER || process.env.DB_USER || 'postgres',
-      password: process.env.DB_SLAVE2_PASSWORD || process.env.DB_PASSWORD || 'password',
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    },
-    pool: {
-      min: parseInt(process.env.DB_SLAVE_POOL_MIN) || 2,
-      max: parseInt(process.env.DB_SLAVE_POOL_MAX) || 8,
-      acquireTimeoutMillis: 30000,
-      createTimeoutMillis: 30000,
-      destroyTimeoutMillis: 5000,
-      idleTimeoutMillis: 30000,
-      reapIntervalMillis: 1000,
-      createRetryIntervalMillis: 100,
-    },
-  }] : []),
+  ...(process.env.DB_SLAVE2_HOST
+    ? [
+        {
+          client: 'postgresql',
+          connection: {
+            host: process.env.DB_SLAVE2_HOST,
+            port: process.env.DB_SLAVE2_PORT || 5432,
+            database: process.env.DB_SLAVE2_NAME || process.env.DB_NAME || 'booking_system_auth',
+            user: process.env.DB_SLAVE2_USER || process.env.DB_USER || 'postgres',
+            password: process.env.DB_SLAVE2_PASSWORD || process.env.DB_PASSWORD || 'password',
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+          },
+          pool: {
+            min: parseInt(process.env.DB_SLAVE_POOL_MIN) || 2,
+            max: parseInt(process.env.DB_SLAVE_POOL_MAX) || 8,
+            acquireTimeoutMillis: 30000,
+            createTimeoutMillis: 30000,
+            destroyTimeoutMillis: 5000,
+            idleTimeoutMillis: 30000,
+            reapIntervalMillis: 1000,
+            createRetryIntervalMillis: 100,
+          },
+        },
+      ]
+    : []),
 ];
 
 // Tạo master connection
 const masterDb = knex(masterConfig);
 
 // Tạo slave connections
-const slaveDbs = slaveConfigs.map(config => knex(config));
+const slaveDbs = slaveConfigs.map((config) => knex(config));
 
 // Round-robin load balancer cho slaves
 let currentSlaveIndex = 0;
@@ -92,7 +96,7 @@ const getSlaveDb = () => {
   if (slaveDbs.length === 0) {
     return masterDb; // Fallback to master if no slaves
   }
-  
+
   const slave = slaveDbs[currentSlaveIndex];
   currentSlaveIndex = (currentSlaveIndex + 1) % slaveDbs.length;
   return slave;
@@ -130,7 +134,7 @@ const checkDatabaseHealth = async () => {
 const closeConnections = async () => {
   try {
     await masterDb.destroy();
-    await Promise.all(slaveDbs.map(db => db.destroy()));
+    await Promise.all(slaveDbs.map((db) => db.destroy()));
     console.log('All database connections closed');
   } catch (error) {
     console.error('Error closing database connections:', error);
@@ -145,4 +149,4 @@ export {
   closeConnections,
   masterConfig,
   slaveConfigs,
-}; 
+};

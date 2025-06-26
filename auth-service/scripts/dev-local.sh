@@ -59,20 +59,26 @@ NODE_ENV=development
 
 # Database Configuration (Master-Slave Pattern)
 DB_MASTER_HOST=localhost
-DB_MASTER_PORT=5432
-DB_MASTER_NAME=booking_system
-DB_MASTER_USER=postgres
-DB_MASTER_PASSWORD=postgres
+DB_MASTER_PORT=55432
+DB_MASTER_NAME=booking_system_auth
+DB_MASTER_USER=booking_user
+DB_MASTER_PASSWORD=booking_pass
 
-DB_SLAVE_HOST=localhost
-DB_SLAVE_PORT=5432
-DB_SLAVE_NAME=booking_system
-DB_SLAVE_USER=postgres
-DB_SLAVE_PASSWORD=postgres
+DB_SLAVE1_HOST=localhost
+DB_SLAVE1_PORT=55433
+DB_SLAVE1_NAME=booking_system_auth
+DB_SLAVE1_USER=booking_user
+DB_SLAVE1_PASSWORD=booking_pass
+
+DB_SLAVE2_HOST=localhost
+DB_SLAVE2_PORT=55434
+DB_SLAVE2_NAME=booking_system_auth
+DB_SLAVE2_USER=booking_user
+DB_SLAVE2_PASSWORD=booking_pass
 
 # Redis Configuration
 REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_PORT=56379
 REDIS_PASSWORD=
 REDIS_DATABASE=0
 

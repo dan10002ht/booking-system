@@ -1,8 +1,11 @@
-import OrganizationRepository from '../repositories/organizationRepository.js';
-import { sanitizeOrganizationInput, sanitizeOrganizationForResponse } from '../utils/sanitizers.js';
+import { getOrganizationRepository } from '../../repositories/repositoryFactory.js';
+import {
+  sanitizeOrganizationInput,
+  sanitizeOrganizationForResponse,
+} from '../../utils/sanitizers.js';
 
-// Initialize organization repository (singleton pattern)
-const organizationRepository = new OrganizationRepository();
+// Get organization repository instance from factory
+const organizationRepository = getOrganizationRepository();
 
 // ========== ORGANIZATION REGISTRATION ==========
 

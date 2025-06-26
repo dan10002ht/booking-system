@@ -60,10 +60,10 @@ class UserRepository extends BaseRepository {
    */
   async searchUsers(searchTerm, options = {}) {
     const { limit = 20, offset = 0, orderBy = 'created_at', orderDirection = 'desc' } = options;
-    
+
     return await this.getSlaveDb()
       .select('*')
-      .where(function() {
+      .where(function () {
         this.where('email', 'ilike', `%${searchTerm}%`)
           .orWhere('username', 'ilike', `%${searchTerm}%`)
           .orWhere('first_name', 'ilike', `%${searchTerm}%`)
@@ -105,15 +105,15 @@ class UserRepository extends BaseRepository {
         .where('user_id', userId)
         .where('status', 'completed')
         .sum('amount as total')
-        .first()
+        .first(),
     ]);
 
     return {
       user,
       stats: {
         totalBookings: parseInt(totalBookings?.total || 0),
-        totalSpent: parseFloat(totalSpent?.total || 0)
-      }
+        totalSpent: parseFloat(totalSpent?.total || 0),
+      },
     };
   }
 
@@ -124,11 +124,11 @@ class UserRepository extends BaseRepository {
    */
   async createUser(userData) {
     const { password, ...otherData } = userData;
-    
+
     // Hash password
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-    
+
     // Chuẩn hóa email và username
     const normalizedData = {
       ...otherData,
@@ -136,7 +136,7 @@ class UserRepository extends BaseRepository {
       username: otherData.username?.toLowerCase(),
       password: hashedPassword,
       created_at: new Date(),
-      updated_at: new Date()
+      updated_at: new Date(),
     };
 
     return await this.create(normalizedData);
@@ -150,7 +150,7 @@ class UserRepository extends BaseRepository {
       ...updateData,
       email: updateData.email?.toLowerCase(),
       username: updateData.username?.toLowerCase(),
-      updated_at: new Date()
+      updated_at: new Date(),
     };
 
     return await this.updateById(userId, normalizedData);
@@ -162,10 +162,10 @@ class UserRepository extends BaseRepository {
   async updatePassword(userId, newPassword) {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-    
+
     return await this.updateById(userId, {
       password: hashedPassword,
-      updated_at: new Date()
+      updated_at: new Date(),
     });
   }
 
@@ -175,7 +175,7 @@ class UserRepository extends BaseRepository {
   async updateUserStatus(userId, status) {
     return await this.updateById(userId, {
       status,
-      updated_at: new Date()
+      updated_at: new Date(),
     });
   }
 
@@ -185,7 +185,7 @@ class UserRepository extends BaseRepository {
   async updateLastLogin(userId) {
     return await this.updateById(userId, {
       last_login_at: new Date(),
-      updated_at: new Date()
+      updated_at: new Date(),
     });
   }
 
@@ -196,7 +196,7 @@ class UserRepository extends BaseRepository {
     return await this.updateById(userId, {
       status: 'deleted',
       deleted_at: new Date(),
-      updated_at: new Date()
+      updated_at: new Date(),
     });
   }
 
@@ -223,7 +223,7 @@ class UserRepository extends BaseRepository {
     if (!user) {
       return false;
     }
-    
+
     return await bcrypt.compare(password, user.password);
   }
 
@@ -235,12 +235,12 @@ class UserRepository extends BaseRepository {
     if (!user || user.status !== 'active') {
       return null;
     }
-    
+
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return null;
     }
-    
+
     return user;
   }
 
@@ -248,11 +248,13 @@ class UserRepository extends BaseRepository {
    * Tạo user session (write vào master)
    */
   async createUserSession(userId, sessionData) {
-    return await this.getMasterDb()('user_sessions').insert({
-      ...sessionData,
-      user_id: userId,
-      created_at: new Date()
-    }).returning('*');
+    return await this.getMasterDb()('user_sessions')
+      .insert({
+        ...sessionData,
+        user_id: userId,
+        created_at: new Date(),
+      })
+      .returning('*');
   }
 
   /**
@@ -269,18 +271,14 @@ class UserRepository extends BaseRepository {
    * Xóa user session (write vào master)
    */
   async deleteUserSession(sessionId) {
-    return await this.getMasterDb()('user_sessions')
-      .where('id', sessionId)
-      .del();
+    return await this.getMasterDb()('user_sessions').where('id', sessionId).del();
   }
 
   /**
    * Xóa tất cả sessions của user (write vào master)
    */
   async deleteAllUserSessions(userId) {
-    return await this.getMasterDb()('user_sessions')
-      .where('user_id', userId)
-      .del();
+    return await this.getMasterDb()('user_sessions').where('user_id', userId).del();
   }
 
   // ========== BULK OPERATIONS ==========
@@ -293,7 +291,7 @@ class UserRepository extends BaseRepository {
       .whereIn('id', userIds)
       .update({
         ...updateData,
-        updated_at: new Date()
+        updated_at: new Date(),
       })
       .returning('*');
   }
@@ -306,11 +304,8 @@ class UserRepository extends BaseRepository {
       await trx('user_sessions').whereIn('user_id', userIds).del();
       await trx('user_profiles').whereIn('user_id', userIds).del();
       await trx('user_tokens').whereIn('user_id', userIds).del();
-      
-      return await trx('users')
-        .whereIn('id', userIds)
-        .del()
-        .returning('*');
+
+      return await trx('users').whereIn('id', userIds).del().returning('*');
     });
   }
 }
@@ -356,13 +351,15 @@ export async function findWithRoles(id) {
     .where('users.id', id)
     .select(
       'users.*',
-      db.raw('json_agg(json_build_object(\'id\', roles.id, \'name\', roles.name, \'description\', roles.description)) as roles')
+      db.raw(
+        "json_agg(json_build_object('id', roles.id, 'name', roles.name, 'description', roles.description)) as roles"
+      )
     )
     .groupBy('users.id')
     .first();
 
   if (user && user.roles) {
-    user.roles = user.roles.filter(role => role.id !== null);
+    user.roles = user.roles.filter((role) => role.id !== null);
   }
 
   return user;
@@ -395,7 +392,7 @@ export async function list(filters = {}, pagination = {}) {
   }
 
   if (filters.search) {
-    query = query.where(function() {
+    query = query.where(function () {
       this.where('email', 'ilike', `%${filters.search}%`)
         .orWhere('first_name', 'ilike', `%${filters.search}%`)
         .orWhere('last_name', 'ilike', `%${filters.search}%`);
@@ -436,7 +433,7 @@ export async function count(filters = {}) {
   }
 
   if (filters.search) {
-    query = query.where(function() {
+    query = query.where(function () {
       this.where('email', 'ilike', `%${filters.search}%`)
         .orWhere('first_name', 'ilike', `%${filters.search}%`)
         .orWhere('last_name', 'ilike', `%${filters.search}%`);
@@ -445,4 +442,4 @@ export async function count(filters = {}) {
 
   const result = await query.count('* as total');
   return parseInt(result[0].total);
-} 
+}

@@ -6,11 +6,11 @@ const config = {
   development: {
     client: 'postgresql',
     connection: {
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 5432,
-      database: process.env.DB_NAME || 'booking_system_auth',
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'password',
+      host: process.env.DB_MASTER_HOST || 'localhost',
+      port: process.env.DB_MASTER_PORT || 5432,
+      database: process.env.DB_MASTER_NAME || 'booking_system_auth',
+      user: process.env.DB_MASTER_USER || 'booking_user',
+      password: process.env.DB_MASTER_PASSWORD || 'booking_pass',
     },
     migrations: {
       directory: './migrations',
@@ -29,8 +29,8 @@ const config = {
       host: process.env.TEST_DB_HOST || 'localhost',
       port: process.env.TEST_DB_PORT || 5432,
       database: process.env.TEST_DB_NAME || 'booking_system_auth_test',
-      user: process.env.TEST_DB_USER || 'postgres',
-      password: process.env.TEST_DB_PASSWORD || 'password',
+      user: process.env.TEST_DB_USER || 'booking_user',
+      password: process.env.TEST_DB_PASSWORD || 'booking_pass',
     },
     migrations: {
       directory: './migrations',
@@ -42,11 +42,11 @@ const config = {
   production: {
     client: 'postgresql',
     connection: {
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT || 5432,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
+      host: process.env.DB_MASTER_HOST,
+      port: process.env.DB_MASTER_PORT || 5432,
+      database: process.env.DB_MASTER_NAME,
+      user: process.env.DB_MASTER_USER,
+      password: process.env.DB_MASTER_PASSWORD,
       ssl: { rejectUnauthorized: false },
     },
     migrations: {
@@ -59,4 +59,4 @@ const config = {
   },
 };
 
-export default config; 
+export default config;

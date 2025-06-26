@@ -23,7 +23,7 @@ const clientOptions = {
 const loadProto = (protoFile) => {
   const protoPath = path.join(__dirname, '..', 'protos', protoFile);
   const packageDefinition = protoLoader.loadSync(protoPath, {
-    keepCase: true,
+    keepCase: false,
     longs: String,
     enums: String,
     defaults: true,

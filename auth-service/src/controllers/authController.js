@@ -3,7 +3,10 @@ import * as userManagementService from '../services/internal/userManagementServi
 import * as adminService from '../services/internal/adminService.js';
 import { sanitizePagination, sanitizeFilters } from '../utils/sanitizers.js';
 
-export async function register(call, callback) {
+/**
+ * Register with email and password
+ */
+export async function registerWithEmail(call, callback) {
   try {
     const {
       email,
@@ -38,7 +41,7 @@ export async function register(call, callback) {
       user_agent,
     };
 
-    const result = await authService.register(userData);
+    const result = await authService.registerWithEmail(userData);
 
     callback(null, {
       success: true,
@@ -46,15 +49,66 @@ export async function register(call, callback) {
       organization: result.organization,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
-      message: 'Registration successful',
+      auth_type: result.authType,
+      message: 'Email registration successful',
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('Email registration error:', error);
     callback({
       code: 13,
       message: error.message,
     });
   }
+}
+
+/**
+ * Register with OAuth (Google, Facebook, etc.)
+ */
+export async function registerWithOAuth(call, callback) {
+  try {
+    const { provider, token, access_token, refresh_token, expires_at, ip_address, user_agent } =
+      call.request;
+
+    if (!provider || !token) {
+      return callback({
+        code: 3,
+        message: 'Provider and token are required',
+      });
+    }
+
+    const oauthData = {
+      token,
+      access_token,
+      refresh_token,
+      expires_at,
+    };
+
+    const sessionData = { ip_address, user_agent };
+    const result = await authService.registerWithOAuth(provider, oauthData, sessionData);
+
+    callback(null, {
+      success: true,
+      user: result.user,
+      access_token: result.accessToken,
+      refresh_token: result.refreshToken,
+      auth_type: result.authType,
+      is_new_user: result.isNewUser,
+      message: result.message || `${provider} registration successful`,
+    });
+  } catch (error) {
+    console.error('OAuth registration error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Legacy register function - redirects to registerWithEmail
+ */
+export async function register(call, callback) {
+  return await registerWithEmail(call, callback);
 }
 
 /**
