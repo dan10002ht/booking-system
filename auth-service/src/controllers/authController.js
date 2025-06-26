@@ -1,6 +1,6 @@
-﻿import * as authService from '../services/authService.js';
-import * as userManagementService from '../services/userManagementService.js';
-import * as adminService from '../services/adminService.js';
+﻿import * as authService from '../services/internal/authService.js';
+import * as userManagementService from '../services/internal/userManagementService.js';
+import * as adminService from '../services/internal/adminService.js';
 import { sanitizePagination, sanitizeFilters } from '../utils/sanitizers.js';
 
 export async function register(call, callback) {

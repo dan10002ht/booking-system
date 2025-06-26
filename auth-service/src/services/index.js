@@ -3,26 +3,26 @@
  * Centralized exports for all services
  */
 
-// Core Authentication Service
-export * as authService from './authService.js';
+// Internal Services (Business Logic)
+export * as internal from './internal/index.js';
 
-// User Management Service
-export * as userManagementService from './userManagementService.js';
+// External Services (gRPC Clients)
+export * as external from './external/index.js';
 
-// Admin Service
-export * as adminService from './adminService.js';
+// Integration Services (Business Flows)
+export * as integration from './integration/index.js';
 
-// Organization Management Service
-export * as organizationManagementService from './organizationManagementService.js';
+// Convenience exports for backward compatibility
+export * as authService from './internal/authService.js';
+export * as userManagementService from './internal/userManagementService.js';
+export * as adminService from './internal/adminService.js';
+export * as organizationManagementService from './internal/organizationManagementService.js';
+export * as oauthService from './internal/oauthService.js';
+export * as emailVerificationService from './internal/emailVerificationService.js';
+export * as permissionService from './internal/permissionService.js';
+export * as twoFactorService from './internal/twoFactorService.js';
 
-// OAuth Service
-export * as oauthService from './oauthService.js';
+export * as deviceService from './external/deviceService.js';
+export * as securityService from './external/securityService.js';
 
-// Email Verification Service
-export * as emailVerificationService from './emailVerificationService.js';
-
-// Permission Service
-export * as permissionService from './permissionService.js';
-
-// Two-Factor Authentication Service
-export * as twoFactorService from './twoFactorService.js';
+export * as integrationService from './integration/integrationService.js';

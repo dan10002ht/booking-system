@@ -1,0 +1,212 @@
+syntax = "proto3";
+
+package security;
+
+import "google/protobuf/timestamp.proto";
+
+// Security Service
+service SecurityService {
+  // Event Management
+  rpc submitEvent(SubmitEventRequest) returns (SubmitEventResponse);
+  rpc getSecurityEvents(GetSecurityEventsRequest) returns (GetSecurityEventsResponse);
+  
+  // Risk Assessment
+  rpc getUserRiskScore(GetUserRiskScoreRequest) returns (GetUserRiskScoreResponse);
+  rpc updateUserRiskScore(UpdateUserRiskScoreRequest) returns (UpdateUserRiskScoreResponse);
+  
+  // Threat Detection
+  rpc detectThreat(DetectThreatRequest) returns (DetectThreatResponse);
+  rpc getThreatPatterns(GetThreatPatternsRequest) returns (GetThreatPatternsResponse);
+  
+  // Alert Management
+  rpc createAlert(CreateAlertRequest) returns (CreateAlertResponse);
+  rpc getAlerts(GetAlertsRequest) returns (GetAlertsResponse);
+  rpc updateAlert(UpdateAlertRequest) returns (UpdateAlertResponse);
+  
+  // Health Check
+  rpc health(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Event Management Messages
+message SubmitEventRequest {
+  string user_id = 1;
+  string service_name = 2;
+  string event_type = 3;
+  string event_category = 4;
+  string severity = 5;
+  string event_data = 6;
+  string ip_address = 7;
+  string user_agent = 8;
+  string location_data = 9;
+}
+
+message SubmitEventResponse {
+  bool success = 1;
+  string event_id = 2;
+  string message = 3;
+}
+
+message GetSecurityEventsRequest {
+  string user_id = 1;
+  string service_name = 2;
+  string event_type = 3;
+  string severity = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+  int32 page = 7;
+  int32 limit = 8;
+}
+
+message GetSecurityEventsResponse {
+  bool success = 1;
+  repeated SecurityEvent events = 2;
+  int32 total = 3;
+  string message = 4;
+}
+
+// Risk Assessment Messages
+message GetUserRiskScoreRequest {
+  string user_id = 1;
+}
+
+message GetUserRiskScoreResponse {
+  bool success = 1;
+  int32 risk_score = 2;
+  string risk_level = 3;
+  repeated string risk_factors = 4;
+  string message = 5;
+}
+
+message UpdateUserRiskScoreRequest {
+  string user_id = 1;
+  int32 risk_score = 2;
+  string reason = 3;
+}
+
+message UpdateUserRiskScoreResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Threat Detection Messages
+message DetectThreatRequest {
+  string user_id = 1;
+  string event_type = 2;
+  string event_data = 3;
+  string ip_address = 4;
+  string user_agent = 5;
+}
+
+message DetectThreatResponse {
+  bool success = 1;
+  bool threat_detected = 2;
+  string threat_type = 3;
+  string threat_level = 4;
+  string description = 5;
+  repeated string recommendations = 6;
+}
+
+message GetThreatPatternsRequest {
+  string user_id = 1;
+  string pattern_type = 2;
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+}
+
+message GetThreatPatternsResponse {
+  bool success = 1;
+  repeated ThreatPattern patterns = 2;
+  string message = 3;
+}
+
+// Alert Management Messages
+message CreateAlertRequest {
+  string user_id = 1;
+  string alert_type = 2;
+  string severity = 3;
+  string title = 4;
+  string description = 5;
+  string source = 6;
+}
+
+message CreateAlertResponse {
+  bool success = 1;
+  string alert_id = 2;
+  string message = 3;
+}
+
+message GetAlertsRequest {
+  string user_id = 1;
+  string status = 2;
+  string severity = 3;
+  int32 page = 4;
+  int32 limit = 5;
+}
+
+message GetAlertsResponse {
+  bool success = 1;
+  repeated SecurityAlert alerts = 2;
+  int32 total = 3;
+  string message = 4;
+}
+
+message UpdateAlertRequest {
+  string alert_id = 1;
+  string status = 2;
+  string notes = 3;
+}
+
+message UpdateAlertResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Health Check Messages
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message SecurityEvent {
+  string event_id = 1;
+  string user_id = 2;
+  string service_name = 3;
+  string event_type = 4;
+  string event_category = 5;
+  string severity = 6;
+  string event_data = 7;
+  string ip_address = 8;
+  string user_agent = 9;
+  string location_data = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message ThreatPattern {
+  string pattern_id = 1;
+  string user_id = 2;
+  string pattern_type = 3;
+  string description = 4;
+  int32 frequency = 5;
+  string severity = 6;
+  google.protobuf.Timestamp first_seen = 7;
+  google.protobuf.Timestamp last_seen = 8;
+}
+
+message SecurityAlert {
+  string alert_id = 1;
+  string user_id = 2;
+  string alert_type = 3;
+  string severity = 4;
+  string title = 5;
+  string description = 6;
+  string status = 7;
+  string source = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+} 
