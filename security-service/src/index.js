@@ -18,7 +18,6 @@ server.bindAsync(
       process.exit(1);
     }
 
-    server.start();
     logger.info(`🚀 Security Service started on ${HOST}:${PORT}`);
     logger.info('🛡️ Threat Detection ready');
     logger.info('🔍 Security Monitoring ready');

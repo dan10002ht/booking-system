@@ -2,6 +2,7 @@ import grpc from '@grpc/grpc-js';
 import protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import logger from './utils/logger.js';
 import { closeConnections } from './config/databaseConfig.js';
 
@@ -11,8 +12,22 @@ import * as authController from './controllers/authController.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load protobuf definition
-const PROTO_PATH = path.join(__dirname, 'proto', 'auth.proto');
+// Load protobuf definition from shared-lib
+const dockerSharedProtoPath = path.join('/shared-lib', 'protos', 'auth.proto');
+const localSharedProtoPath = path.join(__dirname, '..', '..', 'shared-lib', 'protos', 'auth.proto');
+const localProtoPath = path.join(__dirname, 'proto', 'auth.proto');
+
+let PROTO_PATH;
+if (fs.existsSync(dockerSharedProtoPath)) {
+  PROTO_PATH = dockerSharedProtoPath;
+  logger.info(`Using docker shared proto: ${PROTO_PATH}`);
+} else if (fs.existsSync(localSharedProtoPath)) {
+  PROTO_PATH = localSharedProtoPath;
+  logger.info(`Using local shared proto: ${PROTO_PATH}`);
+} else {
+  PROTO_PATH = localProtoPath;
+  logger.info(`Using local proto: ${PROTO_PATH}`);
+}
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: false,

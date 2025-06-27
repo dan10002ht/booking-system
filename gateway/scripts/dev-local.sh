@@ -1,4 +1,4 @@
-#!/bin/bash
+220#!/bin/bash
 
 # Local Development Script for Gateway Service
 # This script starts only infrastructure services and runs gateway locally with hot reload

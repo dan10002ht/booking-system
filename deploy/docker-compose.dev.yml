@@ -193,8 +193,38 @@ services:
       - GRPC_INVOICE_SERVICE_URL=invoice-service:50062
     depends_on:
       - redis
+      - auth-service
     volumes:
       - ../gateway:/app
+      - /app/node_modules
+    networks:
+      - booking-net
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ../auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      - NODE_ENV=development
+      - PORT=50051
+      - HOST=0.0.0.0
+      - DB_HOST=postgres-master
+      - DB_PORT=5432
+      - DB_NAME=booking_system_auth
+      - DB_USER=booking_user
+      - DB_PASSWORD=booking_pass
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=dev_jwt_secret
+      - JWT_REFRESH_SECRET=dev_refresh_secret
+    depends_on:
+      - postgres-master
+      - redis
+    volumes:
+      - ../auth-service:/app
       - /app/node_modules
     networks:
       - booking-net

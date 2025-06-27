@@ -40,7 +40,7 @@ const config = {
   // gRPC Service Configuration
   grpc: {
     authService: {
-      url: process.env.GRPC_AUTH_SERVICE_URL || 'auth-service:50051',
+      url: process.env.GRPC_AUTH_SERVICE_URL || 'localhost:50051',
       maxReceiveMessageLength: parseInt(process.env.GRPC_MAX_RECEIVE_MESSAGE_LENGTH) || 4194304,
       maxSendMessageLength: parseInt(process.env.GRPC_MAX_SEND_MESSAGE_LENGTH) || 4194304,
       keepaliveTimeMs: parseInt(process.env.GRPC_KEEPALIVE_TIME_MS) || 30000,

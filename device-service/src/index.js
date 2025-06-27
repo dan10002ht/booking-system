@@ -18,7 +18,6 @@ server.bindAsync(
       process.exit(1);
     }
 
-    server.start();
     logger.info(`🚀 Device Service started on ${HOST}:${PORT}`);
     logger.info('📱 Device Management ready');
     logger.info('🔐 Session Management ready');

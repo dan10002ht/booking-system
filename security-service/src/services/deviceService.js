@@ -3,12 +3,27 @@ import protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load device service proto
-const PROTO_PATH = path.join(__dirname, '..', 'proto', 'device.proto');
+const dockerSharedProtoPath = path.join('/shared-lib', 'protos', 'device.proto');
+const localSharedProtoPath = path.join(__dirname, '..', '..', '..', 'shared-lib', 'protos', 'device.proto');
+const localProtoPath = path.join(__dirname, '..', 'proto', 'device.proto');
+
+let PROTO_PATH;
+if (fs.existsSync(dockerSharedProtoPath)) {
+  PROTO_PATH = dockerSharedProtoPath;
+  logger.info(`Using docker shared proto: ${PROTO_PATH}`);
+} else if (fs.existsSync(localSharedProtoPath)) {
+  PROTO_PATH = localSharedProtoPath;
+  logger.info(`Using local shared proto: ${PROTO_PATH}`);
+} else {
+  PROTO_PATH = localProtoPath;
+  logger.info(`Using local proto: ${PROTO_PATH}`);
+}
 
 let deviceProto;
 try {
