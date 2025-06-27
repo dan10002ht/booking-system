@@ -37,13 +37,10 @@ const loadProto = (protoFile) => {
   let protoPath;
   if (fs.existsSync(dockerSharedProtoPath)) {
     protoPath = dockerSharedProtoPath;
-    logger.info(`Using docker shared proto: ${protoPath}`);
   } else if (fs.existsSync(localSharedProtoPath)) {
     protoPath = localSharedProtoPath;
-    logger.info(`Using local shared proto: ${protoPath}`);
   } else {
     protoPath = localProtoPath;
-    logger.info(`Using local proto: ${protoPath}`);
   }
 
   const packageDefinition = protoLoader.loadSync(protoPath, {
@@ -60,15 +57,7 @@ const createClient = (serviceUrl, serviceName, packageName) => {
   try {
     const proto = loadProto(`${serviceName}.proto`);
 
-    // Debug: Log the proto structure
-    logger.info(`Proto structure for ${serviceName}:`, {
-      packageName,
-      availablePackages: Object.keys(proto),
-      availableServices: proto[packageName] ? Object.keys(proto[packageName]) : 'No package found',
-    });
-
     const serviceClassName = `${serviceName.charAt(0).toUpperCase() + serviceName.slice(1)}Service`;
-    logger.info(`Looking for service class: ${serviceClassName}`);
 
     if (!proto[packageName]) {
       throw new Error(`Package '${packageName}' not found in proto`);
@@ -88,7 +77,14 @@ const createClient = (serviceUrl, serviceName, packageName) => {
     deadline.setSeconds(deadline.getSeconds() + 30); // 30 seconds timeout
 
     const wrappedClient = {};
-    Object.keys(client).forEach((method) => {
+    // Lấy đủ method từ cả instance và prototype
+    const instanceMethods = Object.keys(client);
+    const protoMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(client)).filter(
+      (m) => typeof client[m] === 'function' && m !== 'constructor'
+    );
+    const allMethods = Array.from(new Set([...instanceMethods, ...protoMethods]));
+
+    allMethods.forEach((method) => {
       if (typeof client[method] === 'function') {
         // Create circuit breaker for each method
         const breaker = circuitBreakerService.createGrpcBreaker(
@@ -115,7 +111,7 @@ const createClient = (serviceUrl, serviceName, packageName) => {
             });
           },
           {
-            timeout: config.circuitBreaker.timeout || 30000,
+            timeout: 60000,
             errorThresholdPercentage: 50,
             resetTimeout: 30000,
           }
@@ -128,9 +124,9 @@ const createClient = (serviceUrl, serviceName, packageName) => {
     });
 
     logger.info(
-      `Successfully created gRPC client for ${serviceName} with methods:`,
-      Object.keys(wrappedClient)
+      `Successfully created gRPC client for ${serviceName} with ${Object.keys(wrappedClient).length} methods`
     );
+
     return wrappedClient;
   } catch (error) {
     logger.error(`Failed to create gRPC client for ${serviceName}`, {
@@ -138,7 +134,6 @@ const createClient = (serviceUrl, serviceName, packageName) => {
       serviceUrl,
       stack: error.stack,
     });
-    console.log('skipped service', serviceName);
 
     // Return a mock client with error methods instead of undefined
     return {

@@ -4,12 +4,24 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
 import config from '../config/index.js';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load security service proto
-const PROTO_PATH = path.join(__dirname, '..', 'proto', 'security.proto');
+const dockerSharedProtoPath = path.join('/shared-lib', 'protos', 'security.proto');
+const localSharedProtoPath = path.join(__dirname, '..', '..', '..', 'shared-lib', 'protos', 'security.proto');
+const localProtoPath = path.join(__dirname, '..', 'proto', 'security.proto');
+
+let PROTO_PATH;
+if (fs.existsSync(dockerSharedProtoPath)) {
+  PROTO_PATH = dockerSharedProtoPath;
+} else if (fs.existsSync(localSharedProtoPath)) {
+  PROTO_PATH = localSharedProtoPath;
+} else {
+  PROTO_PATH = localProtoPath;
+}
 
 let securityProto;
 try {

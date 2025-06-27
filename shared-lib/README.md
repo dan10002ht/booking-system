@@ -1,89 +1,122 @@
 # Shared Library
 
-This directory contains shared libraries and protobuf definitions used across all microservices, regardless of programming language.
+This directory contains shared code and definitions used across all microservices in the booking system.
 
-## Structure
+## 📁 Structure
 
 ```
 shared-lib/
-├── protos/           # Protocol Buffer definitions (language-agnostic)
+├── protos/           # Protocol Buffer definitions
 │   ├── auth.proto    # Authentication service
 │   ├── user.proto    # User management service
+│   ├── device.proto  # Device management service
+│   ├── security.proto # Security service
+│   ├── event.proto   # Event management service
 │   ├── booking.proto # Booking service
-│   └── ...
-├── docs/             # API documentation
-├── schemas/          # JSON schemas, OpenAPI specs
-└── README.md
+│   ├── payment.proto # Payment service
+│   └── ticket.proto  # Ticket service
+└── docs/             # Documentation
+    └── auth-service.md
 ```
 
-## Supported Languages
+## 🔧 Protocol Buffers
 
-- **JavaScript/Node.js** (gateway, auth-service, etc.)
-- **Java** (future services)
-- **Go** (booking-worker, future services)
-- **Python** (analytics, ML services)
-- **Any gRPC-supported language**
+### Centralized Proto Approach
 
-## Usage
+**IMPORTANT**: All services should use proto files from `shared-lib/protos/` instead of maintaining their own copies. This ensures:
 
-### JavaScript/Node.js Services
+- **Consistency**: All services use the same interface definitions
+- **Maintainability**: Single source of truth for API contracts
+- **Version Control**: Centralized versioning of service interfaces
+- **Type Safety**: Consistent data types across all services
+
+### Usage Guidelines
+
+1. **Import from shared-lib**: Always reference proto files from `shared-lib/protos/`
+2. **No Local Copies**: Do not create duplicate proto files in individual services
+3. **Version Synchronization**: Keep all services using the same proto versions
+4. **Breaking Changes**: Coordinate proto changes across all affected services
+
+### Service Mappings
+
+| Service          | Proto File       | Package Name | gRPC Port |
+| ---------------- | ---------------- | ------------ | --------- |
+| Auth Service     | `auth.proto`     | `auth`       | 50051     |
+| User Service     | `user.proto`     | `user`       | 50052     |
+| Event Service    | `event.proto`    | `event`      | 50053     |
+| Booking Service  | `booking.proto`  | `booking`    | 50054     |
+| Payment Service  | `payment.proto`  | `payment`    | 50056     |
+| Ticket Service   | `ticket.proto`   | `ticket`     | 50057     |
+| Device Service   | `device.proto`   | `device`     | 50058     |
+| Security Service | `security.proto` | `security`   | 50059     |
+
+### Loading Proto Files
+
+Services should implement proto loading logic that prioritizes shared-lib:
 
 ```javascript
-// In auth-service/src/server.js
-const PROTO_PATH = path.join(
-  __dirname,
-  "..",
-  "..",
-  "shared-lib",
-  "protos",
-  "auth.proto"
-);
+const loadProto = (protoFile) => {
+  // 1. Try Docker shared proto (production)
+  const dockerSharedProtoPath = path.join("/shared-lib", "protos", protoFile);
 
-// In gateway/src/grpc/clients.js
-const protoPath = path.join(
-  __dirname,
-  "..",
-  "..",
-  "..",
-  "shared-lib",
-  "protos",
-  "auth.proto"
-);
+  // 2. Try local shared proto (development)
+  const localSharedProtoPath = path.join(
+    __dirname,
+    "..",
+    "shared-lib",
+    "protos",
+    protoFile
+  );
+
+  // 3. Fallback to local proto (legacy)
+  const localProtoPath = path.join(__dirname, "protos", protoFile);
+
+  let protoPath;
+  if (fs.existsSync(dockerSharedProtoPath)) {
+    protoPath = dockerSharedProtoPath;
+  } else if (fs.existsSync(localSharedProtoPath)) {
+    protoPath = localSharedProtoPath;
+  } else {
+    protoPath = localProtoPath;
+  }
+
+  return protoLoader.loadSync(protoPath, {
+    keepCase: false,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneofs: true,
+  });
+};
 ```
 
-### Java Services (Future)
+## 📚 Documentation
 
-```java
-// In Java service
-String protoPath = "../shared-lib/protos/auth.proto";
-```
+- `docs/auth-service.md` - Authentication service integration guide
 
-### Go Services (Future)
+## 🔄 Version Management
 
-```go
-// In Go service
-protoPath := "../shared-lib/protos/auth.proto"
-```
+### Proto Versioning
 
-## Benefits
+- Use semantic versioning for proto files
+- Document breaking changes in proto definitions
+- Maintain backward compatibility when possible
+- Coordinate updates across all services
 
-- **Language Agnostic**: Proto files work with any gRPC-supported language
-- **Single Source of Truth**: All services use the same proto definitions
-- **Consistency**: No more mismatched proto files between services
-- **Maintainability**: Update proto once, affects all services
-- **Version Control**: Track proto changes centrally
-- **Multi-language Support**: Easy to add new services in different languages
+### Migration Guide
 
-## Adding New Proto Files
+When updating proto files:
 
-1. Add the `.proto` file to `shared-lib/protos/`
-2. Update all services (JS, Java, Go, etc.) to use the shared proto
-3. Ensure all services use the same proto definition
-4. Update documentation in `docs/` folder
+1. **Update shared-lib**: Modify proto files in `shared-lib/protos/`
+2. **Regenerate Code**: All services should regenerate their gRPC code
+3. **Test Integration**: Verify inter-service communication
+4. **Deploy Together**: Deploy all affected services simultaneously
 
-## Best Practices
+## 🚀 Best Practices
 
-- Keep proto files **backward compatible** when possible
-- Use **semantic versioning** for proto changes
-- Document **breaking changes** clearly
-- Test proto changes across all language implementations
+1. **Single Source of Truth**: Always use `shared-lib/protos/` as the authoritative source
+2. **Consistent Naming**: Follow established naming conventions across all proto files
+3. **Documentation**: Keep proto definitions well-documented with comments
+4. **Validation**: Use proper validation rules in proto definitions
+5. **Error Handling**: Define consistent error response structures
+6. **Health Checks**: Include health check endpoints in all services
