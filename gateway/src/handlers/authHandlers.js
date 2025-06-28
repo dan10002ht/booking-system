@@ -1,5 +1,4 @@
 import grpcClients from '../grpc/clients.js';
-import logger from '../utils/logger.js';
 import {
   sendSuccessResponse,
   createHandler,
@@ -15,7 +14,6 @@ const registerUserWithEmail = async (req, res) => {
     ip_address: req.ip || req.connection.remoteAddress,
     user_agent: req.get('User-Agent'),
   };
-  logger.info('requestData', requestData);
 
   const result = await grpcClients.authService.registerWithEmail(requestData);
   sendSuccessResponse(res, 201, result, req.correlationId);
@@ -39,7 +37,13 @@ const registerUserWithOAuth = async (req, res) => {
  * User login
  */
 const loginUser = async (req, res) => {
-  const result = await grpcClients.authService.login(req.body);
+  const requestData = {
+    ...req.body,
+    ip_address: req.ip || req.connection.remoteAddress,
+    user_agent: req.get('User-Agent'),
+  };
+
+  const result = await grpcClients.authService.login(requestData);
   sendSuccessResponse(res, 200, result, req.correlationId);
 };
 

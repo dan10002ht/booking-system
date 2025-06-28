@@ -8,18 +8,9 @@ import { sanitizePagination, sanitizeFilters } from '../utils/sanitizers.js';
  */
 export async function registerWithEmail(call, callback) {
   try {
-    const {
-      email,
-      password,
-      username,
-      first_name,
-      last_name,
-      phone,
-      role,
-      organization,
-      ip_address,
-      user_agent,
-    } = call.request;
+    const { email, password, first_name, last_name, phone, role, ip_address, user_agent } =
+      call.request;
+    console.log('call.request', call.request);
 
     if (!email || !password) {
       return callback({
@@ -31,12 +22,10 @@ export async function registerWithEmail(call, callback) {
     const userData = {
       email,
       password,
-      username,
       first_name,
       last_name,
       phone,
-      role: role || 'user',
-      organization,
+      role: role || 'individual',
       ip_address,
       user_agent,
     };

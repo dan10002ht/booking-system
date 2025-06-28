@@ -14,7 +14,7 @@ const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
  */
 export function generateAccessToken(payload) {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN
+    expiresIn: JWT_EXPIRES_IN,
   });
 }
 
@@ -22,11 +22,7 @@ export function generateAccessToken(payload) {
  * Generate refresh token
  */
 export function generateRefreshToken(userId) {
-  return jwt.sign(
-    { userId, type: 'refresh' },
-    JWT_SECRET,
-    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
-  );
+  return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN });
 }
 
 /**
@@ -35,7 +31,7 @@ export function generateRefreshToken(userId) {
 export function generateTokens(userId, additionalPayload = {}) {
   const payload = {
     userId,
-    ...additionalPayload
+    ...additionalPayload,
   };
 
   const accessToken = generateAccessToken(payload);
@@ -50,12 +46,12 @@ export function generateTokens(userId, additionalPayload = {}) {
 export function verifyAccessToken(token) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     // Ensure it's not a refresh token
     if (decoded.type === 'refresh') {
       throw new Error('Invalid token type');
     }
-    
+
     return decoded;
   } catch (error) {
     throw new Error(`Invalid access token: ${error.message}`);
@@ -68,11 +64,11 @@ export function verifyAccessToken(token) {
 export function verifyRefreshToken(token) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     if (decoded.type !== 'refresh') {
       throw new Error('Invalid token type');
     }
-    
+
     return decoded;
   } catch (error) {
     throw new Error(`Invalid refresh token: ${error.message}`);
@@ -99,7 +95,7 @@ export function getTokenExpiration(token) {
     if (!decoded || !decoded.exp) {
       return null;
     }
-    
+
     return new Date(decoded.exp * 1000);
   } catch (error) {
     return null;
@@ -114,7 +110,7 @@ export function isTokenExpired(token) {
   if (!expiration) {
     return true;
   }
-  
+
   return new Date() > expiration;
 }
 
@@ -127,7 +123,7 @@ export function getTokenPayload(token) {
     if (!decoded) {
       throw new Error('Invalid token format');
     }
-    
+
     return decoded;
   } catch (error) {
     throw new Error(`Failed to get token payload: ${error.message}`);
@@ -160,7 +156,7 @@ export function validateTokenFormat(token) {
   if (!token || typeof token !== 'string') {
     return false;
   }
-  
+
   const parts = token.split('.');
   return parts.length === 3;
-} 
+}

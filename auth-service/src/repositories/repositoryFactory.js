@@ -1,15 +1,25 @@
 import UserRepository from './userRepository.js';
 import RoleRepository from './roleRepository.js';
+import UserRoleRepository from './userRoleRepository.js';
 import PermissionRepository from './permissionRepository.js';
-import TokenRepository from './tokenRepository.js';
+import RefreshTokenRepository from './refreshTokenRepository.js';
+import PasswordResetTokenRepository from './passwordResetTokenRepository.js';
+import EmailVerificationTokenRepository from './emailVerificationTokenRepository.js';
+import UserSessionRepository from './userSessionRepository.js';
+import UserProfileRepository from './userProfileRepository.js';
 import OAuthAccountRepository from './oauthAccountRepository.js';
 import OrganizationRepository from './organizationRepository.js';
 
 // Singleton instances for master-slave pattern
 let userRepositoryInstance = null;
 let roleRepositoryInstance = null;
+let userRoleRepositoryInstance = null;
 let permissionRepositoryInstance = null;
-let tokenRepositoryInstance = null;
+let refreshTokenRepositoryInstance = null;
+let passwordResetTokenRepositoryInstance = null;
+let emailVerificationTokenRepositoryInstance = null;
+let userSessionRepositoryInstance = null;
+let userProfileRepositoryInstance = null;
 let oauthAccountRepositoryInstance = null;
 let organizationRepositoryInstance = null;
 
@@ -34,6 +44,16 @@ export function getRoleRepository() {
 }
 
 /**
+ * Get UserRoleRepository singleton instance
+ */
+export function getUserRoleRepository() {
+  if (!userRoleRepositoryInstance) {
+    userRoleRepositoryInstance = new UserRoleRepository();
+  }
+  return userRoleRepositoryInstance;
+}
+
+/**
  * Get PermissionRepository singleton instance
  */
 export function getPermissionRepository() {
@@ -44,13 +64,53 @@ export function getPermissionRepository() {
 }
 
 /**
- * Get TokenRepository singleton instance
+ * Get RefreshTokenRepository singleton instance
  */
-export function getTokenRepository() {
-  if (!tokenRepositoryInstance) {
-    tokenRepositoryInstance = new TokenRepository();
+export function getRefreshTokenRepository() {
+  if (!refreshTokenRepositoryInstance) {
+    refreshTokenRepositoryInstance = new RefreshTokenRepository();
   }
-  return tokenRepositoryInstance;
+  return refreshTokenRepositoryInstance;
+}
+
+/**
+ * Get PasswordResetTokenRepository singleton instance
+ */
+export function getPasswordResetTokenRepository() {
+  if (!passwordResetTokenRepositoryInstance) {
+    passwordResetTokenRepositoryInstance = new PasswordResetTokenRepository();
+  }
+  return passwordResetTokenRepositoryInstance;
+}
+
+/**
+ * Get EmailVerificationTokenRepository singleton instance
+ */
+export function getEmailVerificationTokenRepository() {
+  if (!emailVerificationTokenRepositoryInstance) {
+    emailVerificationTokenRepositoryInstance = new EmailVerificationTokenRepository();
+  }
+  return emailVerificationTokenRepositoryInstance;
+}
+
+/**
+ * Get UserSessionRepository singleton instance
+ */
+export function getUserSessionRepository() {
+  if (!userSessionRepositoryInstance) {
+    userSessionRepositoryInstance = new UserSessionRepository();
+  }
+  return userSessionRepositoryInstance;
+}
+
+/**
+ * Get UserProfileRepository singleton instance
+ */
+export function getUserProfileRepository() {
+  if (!userProfileRepositoryInstance) {
+    userProfileRepositoryInstance = new UserProfileRepository();
+  }
+  return userProfileRepositoryInstance;
 }
 
 /**
@@ -79,8 +139,13 @@ export function getOrganizationRepository() {
 export function resetRepositories() {
   userRepositoryInstance = null;
   roleRepositoryInstance = null;
+  userRoleRepositoryInstance = null;
   permissionRepositoryInstance = null;
-  tokenRepositoryInstance = null;
+  refreshTokenRepositoryInstance = null;
+  passwordResetTokenRepositoryInstance = null;
+  emailVerificationTokenRepositoryInstance = null;
+  userSessionRepositoryInstance = null;
+  userProfileRepositoryInstance = null;
   oauthAccountRepositoryInstance = null;
   organizationRepositoryInstance = null;
 }
@@ -92,8 +157,13 @@ export function getAllRepositories() {
   return {
     user: getUserRepository(),
     role: getRoleRepository(),
+    userRole: getUserRoleRepository(),
     permission: getPermissionRepository(),
-    token: getTokenRepository(),
+    refreshToken: getRefreshTokenRepository(),
+    passwordResetToken: getPasswordResetTokenRepository(),
+    emailVerificationToken: getEmailVerificationTokenRepository(),
+    userSession: getUserSessionRepository(),
+    userProfile: getUserProfileRepository(),
     oauthAccount: getOAuthAccountRepository(),
     organization: getOrganizationRepository(),
   };

@@ -21,25 +21,31 @@ class RoleRepository extends BaseRepository {
   /**
    * Tìm role với permissions (read từ slave)
    */
-  async findWithPermissions(id) {
-    const role = await this.getSlaveDb()
-      .leftJoin('role_permissions', 'roles.id', 'role_permissions.role_id')
-      .leftJoin('permissions', 'role_permissions.permission_id', 'permissions.id')
-      .where('roles.id', id)
-      .select(
-        'roles.*',
-        this.getSlaveDb().raw(
-          "json_agg(json_build_object('id', permissions.id, 'name', permissions.name, 'resource', permissions.resource, 'action', permissions.action)) as permissions"
-        )
-      )
-      .groupBy('roles.id')
-      .first();
+  async findWithPermissions(publicId) {
+    // Lấy role trước
+    const role = await this.findOne({ public_id: publicId });
 
-    if (role && role.permissions) {
-      role.permissions = role.permissions.filter((permission) => permission.id !== null);
+    if (!role) {
+      return null;
     }
 
-    return role;
+    // Lấy permissions của role
+    const permissions = await this.getSlaveDb()
+      .select(
+        'permissions.public_id as id',
+        'permissions.name',
+        'permissions.resource',
+        'permissions.action'
+      )
+      .from('permissions')
+      .join('role_permissions', 'permissions.public_id', 'role_permissions.permission_id')
+      .where('role_permissions.role_id', publicId);
+
+    // Trả về role với permissions
+    return {
+      ...role,
+      permissions: permissions || [],
+    };
   }
 
   /**
@@ -54,7 +60,17 @@ class RoleRepository extends BaseRepository {
    */
   async getUserRoles(userId) {
     return await this.getSlaveDb()
-      .join('user_roles', 'roles.id', 'user_roles.role_id')
+      .join('user_roles', 'roles.public_id', 'user_roles.role_id')
+      .where('user_roles.user_id', userId)
+      .select('roles.*');
+  }
+
+  /**
+   * Tìm roles theo user ID (read từ slave)
+   */
+  async findByUserId(userId) {
+    return await this.getSlaveDb()
+      .join('user_roles', 'roles.public_id', 'user_roles.role_id')
       .where('user_roles.user_id', userId)
       .select('roles.*');
   }
@@ -91,24 +107,6 @@ class RoleRepository extends BaseRepository {
    */
   async deleteRole(id) {
     return await this.deleteById(id);
-  }
-
-  /**
-   * Gán role cho user (write vào master)
-   */
-  async assignToUser(userId, roleId) {
-    return await this.getMasterDb()('user_roles').insert({
-      user_id: userId,
-      role_id: roleId,
-      created_at: new Date(),
-    });
-  }
-
-  /**
-   * Xóa role khỏi user (write vào master)
-   */
-  async removeFromUser(userId, roleId) {
-    return await this.getMasterDb()('user_roles').where({ user_id: userId, role_id: roleId }).del();
   }
 }
 

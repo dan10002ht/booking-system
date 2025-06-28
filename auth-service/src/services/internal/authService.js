@@ -1,7 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   getUserRepository,
+  getRoleRepository,
+  getUserRoleRepository,
   getOAuthAccountRepository,
+  getRefreshTokenRepository,
+  getUserSessionRepository,
 } from '../../repositories/repositoryFactory.js';
 import { checkDatabaseHealth } from '../../config/databaseConfig.js';
 import { generateTokens, verifyAccessToken, verifyRefreshToken } from '../../utils/tokenUtils.js';
@@ -16,15 +20,20 @@ import * as oauthService from './oauthService.js';
 
 // Get repository instances from factory
 const userRepository = getUserRepository();
+const roleRepository = getRoleRepository();
+const userRoleRepository = getUserRoleRepository();
 const oauthAccountRepository = getOAuthAccountRepository();
+const refreshTokenRepository = getRefreshTokenRepository();
+const userSessionRepository = getUserSessionRepository();
 
 // ========== REGISTRATION & LOGIN ==========
 
 /**
  * Register new user with email and password
  */
-export async function registerWithEmail(userData) {
+export async function registerWithEmail(registerData) {
   try {
+    const { ip_address, user_agent, role: currentRole, ...userData } = registerData;
     const validation = validateRegistration(userData);
     if (!validation.isValid) {
       throw new Error(validation.errors.join(', '));
@@ -38,53 +47,66 @@ export async function registerWithEmail(userData) {
       throw new Error('Email is already in use');
     }
 
-    // Check if username already exists (if provided)
-    if (sanitizedData.username) {
-      const existingUsername = await userRepository.findByUsername(sanitizedData.username);
-      if (existingUsername) {
-        throw new Error('Username is already in use');
-      }
-    }
-
     // Create user with email authentication
     const newUser = await userRepository.createUser({
       ...sanitizedData,
       auth_type: 'email',
-      status: 'active',
-      role: sanitizedData.role || 'user',
+      is_active: true,
     });
+
+    // Assign default role based on userData.role or default to 'individual'
+    const roleName = currentRole || 'individual';
+    const role = await roleRepository.findByName(roleName);
+
+    if (!role) {
+      throw new Error(`Invalid role: ${roleName}`);
+    }
+
+    // Assign role to user
+    await userRoleRepository.assignRoleToUser(newUser.public_id, role.public_id);
 
     // Create organization if user role is 'organization'
     let organization = null;
-    if (sanitizedData.role === 'organization' && userData.organization) {
+    if (userData.organization) {
       try {
         organization = await organizationManagementService.createOrganizationForUser(
-          newUser.id,
+          newUser.public_id,
           userData.organization
         );
       } catch (orgError) {
         // If organization creation fails, delete the user and throw error
-        await userRepository.deleteUser(newUser.id);
+        await userRepository.deleteUser(newUser.public_id);
         throw new Error(`Organization creation failed: ${orgError.message}`);
       }
     }
 
+    // Get user with roles for token generation
+    const userWithRoles = await userRepository.findWithRoles(newUser.public_id);
+    const primaryRole =
+      userWithRoles.roles && userWithRoles.roles.length > 0 ? userWithRoles.roles[0] : role;
+
     // Generate tokens and create session
-    const tokens = generateTokens(newUser.id, {
+    const tokens = generateTokens(newUser.public_id, {
       email: newUser.email,
-      role: newUser.role,
+      role: primaryRole.name,
     });
 
-    await userRepository.createUserSession(newUser.id, {
-      session_id: uuidv4(),
-      refresh_token: tokens.refreshToken,
+    // Save refresh token to refresh_tokens table
+    await refreshTokenRepository.createRefreshToken({
+      user_id: newUser.public_id,
+      token_hash: tokens.refreshToken, // In production, hash this
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      ip_address: userData.ip_address,
-      user_agent: userData.user_agent,
+    });
+
+    await userSessionRepository.createUserSession(newUser.public_id, {
+      session_id: uuidv4(),
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      ip_address: ip_address,
+      user_agent: user_agent,
     });
 
     return {
-      user: sanitizeUserForResponse(newUser),
+      user: sanitizeUserForResponse({ ...newUser, role: primaryRole.name }),
       organization: organization,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -119,7 +141,7 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       // OAuth account exists - login existing user
       const existingUser = await userRepository.findById(existingOAuthAccount.user_id);
 
-      if (!existingUser || existingUser.status !== 'active') {
+      if (!existingUser || !existingUser.is_active) {
         throw new Error('Account is locked or not activated');
       }
 
@@ -130,22 +152,35 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
         expires_at: oauthData.expires_at ? new Date(oauthData.expires_at * 1000) : null,
       });
 
+      // Get user with roles for token generation
+      const userWithRoles = await userRepository.findWithRoles(existingUser.public_id);
+      const primaryRole =
+        userWithRoles.roles && userWithRoles.roles.length > 0
+          ? userWithRoles.roles[0]
+          : { name: 'individual' };
+
       // Generate tokens and create session
-      const tokens = generateTokens(existingUser.id, {
+      const tokens = generateTokens(existingUser.public_id, {
         email: existingUser.email,
-        role: existingUser.role,
+        role: primaryRole.name,
       });
 
-      await userRepository.createUserSession(existingUser.id, {
+      // Save refresh token to refresh_tokens table
+      await refreshTokenRepository.createRefreshToken({
+        user_id: existingUser.public_id,
+        token_hash: tokens.refreshToken, // In production, hash this
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      });
+
+      await userSessionRepository.createUserSession(existingUser.public_id, {
         session_id: uuidv4(),
-        refresh_token: tokens.refreshToken,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         ip_address: sanitizedSessionData.ip_address,
         user_agent: sanitizedSessionData.user_agent,
       });
 
       return {
-        user: sanitizeUserForResponse(existingUser),
+        user: sanitizeUserForResponse({ ...existingUser, role: primaryRole.name }),
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         authType: 'oauth',
@@ -160,7 +195,7 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       // Email exists but not linked to this OAuth provider
       // Link OAuth account to existing user
       await oauthAccountRepository.createOAuthAccount({
-        user_id: existingUserByEmail.id,
+        user_id: existingUserByEmail.public_id,
         provider: provider,
         provider_user_id: oauthUserInfo.provider_user_id,
         access_token: oauthData.access_token,
@@ -168,22 +203,35 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
         expires_at: oauthData.expires_at ? new Date(oauthData.expires_at * 1000) : null,
       });
 
+      // Get user with roles for token generation
+      const userWithRoles = await userRepository.findWithRoles(existingUserByEmail.public_id);
+      const primaryRole =
+        userWithRoles.roles && userWithRoles.roles.length > 0
+          ? userWithRoles.roles[0]
+          : { name: 'individual' };
+
       // Generate tokens and create session
-      const tokens = generateTokens(existingUserByEmail.id, {
+      const tokens = generateTokens(existingUserByEmail.public_id, {
         email: existingUserByEmail.email,
-        role: existingUserByEmail.role,
+        role: primaryRole.name,
       });
 
-      await userRepository.createUserSession(existingUserByEmail.id, {
+      // Save refresh token to refresh_tokens table
+      await refreshTokenRepository.createRefreshToken({
+        user_id: existingUserByEmail.public_id,
+        token_hash: tokens.refreshToken, // In production, hash this
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      });
+
+      await userSessionRepository.createUserSession(existingUserByEmail.public_id, {
         session_id: uuidv4(),
-        refresh_token: tokens.refreshToken,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         ip_address: sanitizedSessionData.ip_address,
         user_agent: sanitizedSessionData.user_agent,
       });
 
       return {
-        user: sanitizeUserForResponse(existingUserByEmail),
+        user: sanitizeUserForResponse({ ...existingUserByEmail, role: primaryRole.name }),
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         authType: 'oauth',
@@ -198,14 +246,19 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       first_name: oauthUserInfo.first_name || '',
       last_name: oauthUserInfo.last_name || '',
       auth_type: 'oauth',
-      status: 'active',
-      role: 'user',
+      is_active: true,
       email_verified_at: new Date(), // OAuth emails are pre-verified
     });
 
+    // Assign default 'individual' role to OAuth users
+    const defaultRole = await roleRepository.findByName('individual');
+    if (defaultRole) {
+      await userRoleRepository.assignRoleToUser(newUser.public_id, defaultRole.public_id);
+    }
+
     // Create OAuth account
     await oauthAccountRepository.createOAuthAccount({
-      user_id: newUser.id,
+      user_id: newUser.public_id,
       provider: provider,
       provider_user_id: oauthUserInfo.provider_user_id,
       access_token: oauthData.access_token,
@@ -214,28 +267,34 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
     });
 
     // Generate tokens and create session
-    const tokens = generateTokens(newUser.id, {
+    const tokens = generateTokens(newUser.public_id, {
       email: newUser.email,
-      role: newUser.role,
+      role: 'individual', // Default role for OAuth users
     });
 
-    await userRepository.createUserSession(newUser.id, {
+    // Save refresh token to refresh_tokens table
+    await refreshTokenRepository.createRefreshToken({
+      user_id: newUser.public_id,
+      token_hash: tokens.refreshToken, // In production, hash this
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    });
+
+    await userSessionRepository.createUserSession(newUser.public_id, {
       session_id: uuidv4(),
-      refresh_token: tokens.refreshToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       ip_address: sanitizedSessionData.ip_address,
       user_agent: sanitizedSessionData.user_agent,
     });
 
     return {
-      user: sanitizeUserForResponse(newUser),
+      user: sanitizeUserForResponse({ ...newUser, role: 'individual' }),
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       authType: 'oauth',
       isNewUser: true,
     };
   } catch (error) {
-    throw new Error(`${provider} registration failed: ${error.message}`);
+    throw new Error(`OAuth registration failed: ${error.message}`);
   }
 }
 
@@ -261,30 +320,43 @@ export async function login(email, password, sessionData = {}) {
     }
 
     // Check user status
-    if (user.status !== 'active') {
+    if (!user.is_active) {
       throw new Error('Account is locked or not activated');
     }
 
     // Update last login
-    await userRepository.updateLastLogin(user.id);
+    await userRepository.updateLastLogin(user.public_id);
+
+    // Get user with roles for token generation
+    const userWithRoles = await userRepository.findWithRoles(user.public_id);
+    const primaryRole =
+      userWithRoles.roles && userWithRoles.roles.length > 0
+        ? userWithRoles.roles[0]
+        : { name: 'individual' };
 
     // Generate tokens
-    const tokens = await generateTokens(user.id, {
+    const tokens = await generateTokens(user.public_id, {
       email: user.email,
-      role: user.role,
+      role: primaryRole.name,
+    });
+
+    // Save refresh token to refresh_tokens table
+    await refreshTokenRepository.createRefreshToken({
+      user_id: user.public_id,
+      token_hash: tokens.refreshToken, // In production, hash this
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
 
     // Create session
-    await userRepository.createUserSession(user.id, {
+    await userSessionRepository.createUserSession(user.public_id, {
       session_id: uuidv4(),
-      refresh_token: tokens.refreshToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       ip_address: sanitizedSessionData.ip_address,
       user_agent: sanitizedSessionData.user_agent,
     });
 
     return {
-      user: sanitizeUserForResponse(user),
+      user: sanitizeUserForResponse({ ...user, role: primaryRole.name }),
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
@@ -300,10 +372,12 @@ export async function logout(userId, sessionId = null) {
   try {
     if (sessionId) {
       // Delete specific session
-      await userRepository.deleteUserSession(sessionId);
+      await userSessionRepository.deleteUserSession(sessionId);
     } else {
       // Delete all user sessions
-      await userRepository.deleteAllUserSessions(userId);
+      await userSessionRepository.deleteAllUserSessions(userId);
+      // Revoke all refresh tokens
+      await refreshTokenRepository.revokeAllUserTokens(userId);
     }
 
     return { message: 'Logout successful' };
@@ -323,9 +397,16 @@ export async function generateTokensForUser(userId) {
     throw new Error('User does not exist');
   }
 
+  // Get user with roles for token generation
+  const userWithRoles = await userRepository.findWithRoles(userId);
+  const primaryRole =
+    userWithRoles.roles && userWithRoles.roles.length > 0
+      ? userWithRoles.roles[0]
+      : { name: 'individual' };
+
   return await generateTokens(userId, {
     email: user.email,
-    role: user.role,
+    role: primaryRole.name,
   });
 }
 
@@ -337,21 +418,24 @@ export async function refreshToken(refreshToken) {
     // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
 
-    // Check if refresh token exists in session
-    const sessions = await userRepository.getUserSessions(decoded.userId);
-    const validSession = sessions.find((session) => session.refresh_token === refreshToken);
+    // Check if refresh token exists in refresh_tokens table
+    const tokenRecord = await refreshTokenRepository.findRefreshTokenByHash(refreshToken);
 
-    if (!validSession) {
+    if (!tokenRecord || tokenRecord.is_revoked || tokenRecord.expires_at < new Date()) {
       throw new Error('Invalid refresh token');
     }
 
     // Generate new tokens
     const tokens = await generateTokensForUser(decoded.userId);
 
-    // Update session with new refresh token
-    await userRepository.updateUserSession(validSession.id, {
-      refresh_token: tokens.refreshToken,
-      updated_at: new Date(),
+    // Update refresh token in refresh_tokens table
+    await refreshTokenRepository.revokeRefreshToken(tokenRecord.id);
+
+    // Create new refresh token
+    await refreshTokenRepository.createRefreshToken({
+      user_id: decoded.userId,
+      token_hash: tokens.refreshToken, // In production, hash this
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
 
     return tokens;
@@ -369,15 +453,22 @@ export async function verifyToken(token) {
 
     // Check if user exists and is active
     const user = await userRepository.findById(decoded.userId);
-    if (!user || user.status !== 'active') {
+    if (!user || !user.is_active) {
       throw new Error('Invalid user');
     }
+
+    // Get user with roles
+    const userWithRoles = await userRepository.findWithRoles(decoded.userId);
+    const primaryRole =
+      userWithRoles.roles && userWithRoles.roles.length > 0
+        ? userWithRoles.roles[0]
+        : { name: 'individual' };
 
     return {
       userId: decoded.userId,
       email: decoded.email,
-      role: decoded.role,
-      user: sanitizeUserForResponse(user),
+      role: primaryRole.name,
+      user: sanitizeUserForResponse({ ...user, role: primaryRole.name }),
     };
   } catch (error) {
     throw new Error(`Invalid token: ${error.message}`);
@@ -407,7 +498,7 @@ export async function changePassword(userId, currentPassword, newPassword) {
     await userRepository.updatePassword(userId, newPassword);
 
     // Delete all sessions to force re-login
-    await userRepository.deleteAllUserSessions(userId);
+    await userSessionRepository.deleteAllUserSessions(userId);
 
     return { message: 'Password changed successfully' };
   } catch (error) {

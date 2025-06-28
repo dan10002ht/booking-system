@@ -20,7 +20,9 @@ class BaseRepository {
    * Lấy slave database connection cho read operations
    */
   getSlaveDb() {
-    return getSlaveDb()(this.tableName);
+    // for testing before master-slave pattern
+    return masterDb(this.tableName);
+    // return getSlaveDb()(this.tableName);
   }
 
   // ========== READ OPERATIONS (Sử dụng Slave) ==========

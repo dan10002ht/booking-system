@@ -1,111 +1,107 @@
-import { getUserRepository } from '../../repositories/repositoryFactory.js';
-import { sanitizeUserInput, sanitizeUserForResponse } from '../../utils/sanitizers.js';
-import { validateEmail, validatePassword } from '../../utils/validations.js';
+import {
+  getUserRepository,
+  getUserProfileRepository,
+} from '../../repositories/repositoryFactory.js';
 
-// Get user repository instance from factory
+// Get repository instances
 const userRepository = getUserRepository();
-
-// ========== USER PROFILE MANAGEMENT ==========
+const userProfileRepository = getUserProfileRepository();
 
 /**
- * Get user profile
+ * Lấy user profile với thông tin chi tiết
  */
 export async function getUserProfile(userId) {
-  try {
-    const user = await userRepository.getUserProfile(userId);
-    if (!user) {
-      throw new Error('User does not exist');
-    }
-
-    return sanitizeUserForResponse(user);
-  } catch (error) {
-    throw new Error(`Failed to get user profile: ${error.message}`);
-  }
+  return await userProfileRepository.findUserWithProfile(userId);
 }
 
 /**
- * Update user profile
+ * Lấy user statistics
  */
-export async function updateUserProfile(userId, updateData) {
-  try {
-    const sanitizedData = sanitizeUserInput(updateData);
-    const updatedUser = await userRepository.updateUser(userId, sanitizedData);
-    return sanitizeUserForResponse(updatedUser);
-  } catch (error) {
-    throw new Error(`Failed to update user profile: ${error.message}`);
-  }
+export async function getUserStats(userId) {
+  const [user, totalBookings, totalSpent] = await Promise.all([
+    userRepository.findById(userId),
+    userRepository.getSlaveDb()('bookings').where('user_id', userId).count('* as total').first(),
+    userRepository
+      .getSlaveDb()('payments')
+      .where('user_id', userId)
+      .where('status', 'completed')
+      .sum('amount as total')
+      .first(),
+  ]);
+
+  return {
+    user,
+    stats: {
+      totalBookings: parseInt(totalBookings?.total || 0),
+      totalSpent: parseFloat(totalSpent?.total || 0),
+    },
+  };
 }
 
 /**
- * Get user sessions
+ * Hard delete user và tất cả related data
  */
-export async function getUserSessions(userId) {
-  try {
-    return await userRepository.getUserSessions(userId);
-  } catch (error) {
-    throw new Error(`Failed to get sessions: ${error.message}`);
-  }
-}
+export async function hardDeleteUser(userId) {
+  return await userRepository.transaction(async (trx) => {
+    // Xóa user sessions
+    await trx('user_sessions').where('user_id', userId).del();
 
-// ========== USER SEARCH & LISTING ==========
+    // Xóa user profiles
+    await trx('user_profiles').where('user_id', userId).del();
 
-/**
- * Get users list (with pagination)
- */
-export async function getUsers(page = 1, pageSize = 20, filters = {}) {
-  try {
-    const conditions = {};
+    // Xóa user roles
+    await trx('user_roles').where('user_id', userId).del();
 
-    if (filters.status) {
-      conditions.status = filters.status;
-    }
+    // Xóa refresh tokens
+    await trx('refresh_tokens').where('user_id', userId).del();
 
-    if (filters.role) {
-      conditions.role = filters.role;
-    }
+    // Xóa password reset tokens
+    await trx('password_reset_tokens').where('user_id', userId).del();
 
-    const options = {
-      orderBy: filters.orderBy || 'created_at',
-      orderDirection: filters.orderDirection || 'desc',
-    };
+    // Xóa email verification tokens
+    await trx('email_verification_tokens').where('user_id', userId).del();
 
-    return await userRepository.paginate(page, pageSize, conditions, options);
-  } catch (error) {
-    throw new Error(`Failed to get users list: ${error.message}`);
-  }
+    // Xóa OAuth accounts
+    await trx('oauth_accounts').where('user_id', userId).del();
+
+    // Xóa organizations
+    await trx('organizations').where('user_id', userId).del();
+
+    // Cuối cùng xóa user
+    return await trx('users').where('id', userId).del().returning('*');
+  });
 }
 
 /**
- * Search users
+ * Bulk delete users và tất cả related data
  */
-export async function searchUsers(searchTerm, page = 1, pageSize = 20) {
-  try {
-    const offset = (page - 1) * pageSize;
-    const users = await userRepository.searchUsers(searchTerm, {
-      limit: pageSize,
-      offset,
-    });
+export async function bulkDeleteUsers(userIds) {
+  return await userRepository.transaction(async (trx) => {
+    // Xóa user sessions
+    await trx('user_sessions').whereIn('user_id', userIds).del();
 
-    const total = await userRepository.count({
-      // Count with similar search conditions
-    });
+    // Xóa user profiles
+    await trx('user_profiles').whereIn('user_id', userIds).del();
 
-    return {
-      data: users.map((user) => sanitizeUserForResponse(user)),
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        hasNext: page < Math.ceil(total / pageSize),
-        hasPrev: page > 1,
-      },
-    };
-  } catch (error) {
-    throw new Error(`Search users failed: ${error.message}`);
-  }
+    // Xóa user roles
+    await trx('user_roles').whereIn('user_id', userIds).del();
+
+    // Xóa refresh tokens
+    await trx('refresh_tokens').whereIn('user_id', userIds).del();
+
+    // Xóa password reset tokens
+    await trx('password_reset_tokens').whereIn('user_id', userIds).del();
+
+    // Xóa email verification tokens
+    await trx('email_verification_tokens').whereIn('user_id', userIds).del();
+
+    // Xóa OAuth accounts
+    await trx('oauth_accounts').whereIn('user_id', userIds).del();
+
+    // Xóa organizations
+    await trx('organizations').whereIn('user_id', userIds).del();
+
+    // Cuối cùng xóa users
+    return await trx('users').whereIn('id', userIds).del().returning('*');
+  });
 }
-
-// ========== RE-EXPORT UTILITY FUNCTIONS ==========
-
-export { validateEmail, validatePassword, sanitizeUserInput };

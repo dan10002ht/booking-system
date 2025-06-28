@@ -94,7 +94,7 @@ let currentSlaveIndex = 0;
 
 const getSlaveDb = () => {
   if (slaveDbs.length === 0) {
-    return masterDb; // Fallback to master if no slaves
+    return masterDb;
   }
 
   const slave = slaveDbs[currentSlaveIndex];

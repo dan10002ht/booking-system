@@ -5,6 +5,61 @@
 
 echo "🚀 Starting Gateway Local Development Environment"
 
+# Function to kill process using a specific port
+kill_port() {
+    local port=$1
+    local service_name=$2
+    
+    echo "🔍 Checking if port $port is in use by $service_name..."
+    
+    # Find all processes using the port
+    local pids=$(ss -tlnp | grep ":$port " | awk '{print $7}' | sed 's/.*pid=\([0-9]*\).*/\1/' | sort -u)
+    
+    if [ ! -z "$pids" ]; then
+        echo "⚠️  Found processes using port $port: $pids, killing them..."
+        echo $pids | xargs kill -9 2>/dev/null
+        sleep 3
+        
+        # Verify the port is free
+        if ss -tlnp | grep ":$port " > /dev/null; then
+            echo "❌ Failed to kill all processes on port $port"
+            # Try one more time with force
+            local remaining_pids=$(ss -tlnp | grep ":$port " | awk '{print $7}' | sed 's/.*pid=\([0-9]*\).*/\1/' | sort -u)
+            if [ ! -z "$remaining_pids" ]; then
+                echo "🔄 Force killing remaining processes: $remaining_pids"
+                echo $remaining_pids | xargs kill -9 2>/dev/null
+                sleep 2
+            fi
+        else
+            echo "✅ Successfully freed port $port"
+        fi
+    else
+        echo "✅ Port $port is available"
+    fi
+}
+
+# Function to kill gateway processes
+kill_gateway() {
+    echo "🔍 Looking for existing gateway processes..."
+    
+    # Kill nodemon processes for gateway
+    local nodemon_pids=$(ps aux | grep "nodemon.*gateway" | grep -v grep | awk '{print $2}')
+    if [ ! -z "$nodemon_pids" ]; then
+        echo "⚠️  Found nodemon processes: $nodemon_pids, killing them..."
+        echo $nodemon_pids | xargs kill -9 2>/dev/null
+    fi
+    
+    # Kill node processes for gateway
+    local node_pids=$(ps aux | grep "node.*gateway" | grep -v grep | awk '{print $2}')
+    if [ ! -z "$node_pids" ]; then
+        echo "⚠️  Found node processes: $node_pids, killing them..."
+        echo $node_pids | xargs kill -9 2>/dev/null
+    fi
+    
+    sleep 2
+    echo "✅ Gateway processes cleaned up"
+}
+
 # Check if yarn is installed
 if ! command -v yarn &> /dev/null; then
     echo "❌ Yarn is not installed. Please install Yarn"
@@ -30,6 +85,11 @@ if ! docker compose version &> /dev/null; then
 fi
 
 echo "✅ Prerequisites check passed"
+
+# Kill existing processes before starting
+echo "🧹 Cleaning up existing processes..."
+kill_gateway
+kill_port 53000 "gateway"
 
 # Start only infrastructure services (no other microservices)
 echo "🐳 Starting infrastructure services only..."

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Initializing PostgreSQL Slave..."
+echo "🚀 Initializing PostgreSQL Slave 2..."
 
 # Wait for master to be ready
 until pg_isready -h postgres-master -p 5432 -U booking_user; do
@@ -24,7 +24,7 @@ cat >> /var/lib/postgresql/data/postgresql.conf <<EOF
 
 # Replication settings
 primary_conninfo = 'host=postgres-master port=5432 user=replicator password=replicator_pass'
-primary_slot_name = 'replica_slot_1'
+primary_slot_name = 'replica_slot_2'
 restore_command = 'cp /var/lib/postgresql/archive/%f %p'
 recovery_target_timeline = 'latest'
 hot_standby = on
@@ -39,4 +39,4 @@ echo "📝 Creating standby.signal file..."
 touch /var/lib/postgresql/data/standby.signal
 chown postgres:postgres /var/lib/postgresql/data/standby.signal
 
-echo "✅ Slave initialization completed!" 
+echo "✅ Slave 2 initialization completed!" 

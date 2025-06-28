@@ -9,7 +9,6 @@ export function sanitizeUserInput(input) {
   return {
     ...input,
     email: input.email?.toLowerCase().trim(),
-    username: input.username?.toLowerCase().trim(),
     first_name: input.first_name?.trim(),
     last_name: input.last_name?.trim(),
     phone: input.phone?.trim(),

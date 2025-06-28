@@ -44,7 +44,7 @@ const loadProto = (protoFile) => {
   }
 
   const packageDefinition = protoLoader.loadSync(protoPath, {
-    keepCase: false,
+    keepCase: true,
     longs: String,
     enums: String,
     defaults: true,

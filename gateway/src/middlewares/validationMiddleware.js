@@ -12,18 +12,24 @@ export const validateRegistration = [
     .withMessage(
       'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
-  body('firstName')
+  body('first_name')
     .notEmpty()
     .withMessage('First name is required')
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('First name must be between 2 and 50 characters'),
-  body('lastName')
+  body('last_name')
     .notEmpty()
     .withMessage('Last name is required')
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Last name must be between 2 and 50 characters'),
+
+  body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
+  body('role')
+    .optional()
+    .isIn(['user', 'organization', 'admin'])
+    .withMessage('Role must be one of: user, organization, admin'),
 ];
 
 /**
@@ -38,7 +44,7 @@ export const validateLogin = [
  * Validation middleware for token refresh
  */
 export const validateRefreshToken = [
-  body('refreshToken')
+  body('refresh_token')
     .notEmpty()
     .withMessage('Refresh token is required')
     .isJWT()
@@ -49,12 +55,12 @@ export const validateRefreshToken = [
  * Validation middleware for user profile update
  */
 export const validateProfileUpdate = [
-  body('firstName')
+  body('first_name')
     .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('First name must be between 2 and 50 characters'),
-  body('lastName')
+  body('last_name')
     .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
@@ -71,16 +77,16 @@ export const validateProfileUpdate = [
  * Validation middleware for password change
  */
 export const validatePasswordChange = [
-  body('currentPassword').notEmpty().withMessage('Current password is required'),
-  body('newPassword')
+  body('current_password').notEmpty().withMessage('Current password is required'),
+  body('new_password')
     .isLength({ min: 8 })
     .withMessage('New password must be at least 8 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage(
       'New password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
-  body('confirmPassword').custom((value, { req }) => {
-    if (value !== req.body.newPassword) {
+  body('confirm_password').custom((value, { req }) => {
+    if (value !== req.body.new_password) {
       throw new Error('Password confirmation does not match password');
     }
     return true;
@@ -91,27 +97,27 @@ export const validatePasswordChange = [
  * Validation middleware for booking creation
  */
 export const validateBooking = [
-  body('eventId')
+  body('event_id')
     .notEmpty()
     .withMessage('Event ID is required')
     .isUUID()
     .withMessage('Invalid event ID format'),
-  body('ticketQuantity')
+  body('ticket_quantity')
     .isInt({ min: 1, max: 10 })
     .withMessage('Ticket quantity must be between 1 and 10'),
-  body('bookingDate').isISO8601().withMessage('Invalid booking date format'),
+  body('booking_date').isISO8601().withMessage('Invalid booking date format'),
 ];
 
 /**
  * Validation middleware for payment
  */
 export const validatePayment = [
-  body('bookingId')
+  body('booking_id')
     .notEmpty()
     .withMessage('Booking ID is required')
     .isUUID()
     .withMessage('Invalid booking ID format'),
-  body('paymentMethod')
+  body('payment_method')
     .isIn(['credit_card', 'debit_card', 'paypal', 'bank_transfer'])
     .withMessage('Invalid payment method'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
@@ -143,18 +149,18 @@ export const validateEvent = [
  * Validation middleware for user profile update
  */
 export const validateUserProfileUpdate = [
-  body('firstName')
+  body('first_name')
     .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('First name must be between 2 and 50 characters'),
-  body('lastName')
+  body('last_name')
     .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Last name must be between 2 and 50 characters'),
   body('phone').optional().isMobilePhone().withMessage('Please provide a valid phone number'),
-  body('dateOfBirth').optional().isISO8601().withMessage('Invalid date of birth format'),
+  body('date_of_birth').optional().isISO8601().withMessage('Invalid date of birth format'),
   body('address').optional().isObject().withMessage('Address must be an object'),
 ];
 
@@ -180,12 +186,12 @@ export const validateUserAddress = [
     .trim()
     .isLength({ max: 100 })
     .withMessage('State must not exceed 100 characters'),
-  body('zipCode')
+  body('postal_code')
     .notEmpty()
-    .withMessage('ZIP code is required')
+    .withMessage('Postal code is required')
     .trim()
     .isLength({ max: 20 })
-    .withMessage('ZIP code must not exceed 20 characters'),
+    .withMessage('Postal code must not exceed 20 characters'),
   body('country')
     .notEmpty()
     .withMessage('Country is required')
@@ -213,11 +219,11 @@ export const validateUserAddressUpdate = [
     .trim()
     .isLength({ max: 100 })
     .withMessage('State must not exceed 100 characters'),
-  body('zipCode')
+  body('postal_code')
     .optional()
     .trim()
     .isLength({ max: 20 })
-    .withMessage('ZIP code must not exceed 20 characters'),
+    .withMessage('Postal code must not exceed 20 characters'),
   body('country')
     .optional()
     .trim()

@@ -15,7 +15,7 @@ export const handleValidation = (req, res) => {
       error: 'Validation Error',
       code: 'VALIDATION_ERROR',
       details: errors.array(),
-      correlationId: req.correlationId
+      correlationId: req.correlationId,
     });
     return false;
   }
@@ -32,7 +32,7 @@ export const handleValidation = (req, res) => {
 export const sendSuccessResponse = (res, statusCode, data, correlationId) => {
   res.status(statusCode).json({
     ...data,
-    correlationId
+    correlationId,
   });
 };
 
@@ -45,10 +45,17 @@ export const sendSuccessResponse = (res, statusCode, data, correlationId) => {
  * @param {Object} details - Additional error details
  * @param {string} code - Error code
  */
-export const sendErrorResponse = (res, statusCode, error, correlationId, details = null, code = null) => {
+export const sendErrorResponse = (
+  res,
+  statusCode,
+  error,
+  correlationId,
+  details = null,
+  code = null
+) => {
   const response = {
     error,
-    correlationId
+    correlationId,
   };
 
   if (code) {
@@ -71,26 +78,33 @@ export const sendErrorResponse = (res, statusCode, error, correlationId, details
  * @param {string} methodName - Method name for logging
  * @param {Object} customErrorMapping - Custom error mapping (optional)
  */
-export const handleGrpcError = (res, error, correlationId, serviceName, methodName, customErrorMapping = {}) => {
+export const handleGrpcError = (
+  res,
+  error,
+  correlationId,
+  serviceName,
+  methodName,
+  customErrorMapping = {}
+) => {
   // Log error
   logger.error(`${serviceName} ${methodName} error`, {
     error: error.message,
     code: error.code,
-    correlationId
+    correlationId,
   });
 
   // Get error mapping for the service
   const serviceErrorMapping = getErrorMapping(serviceName);
-  
+
   // Merge with custom mapping (custom mapping takes precedence)
   const mapping = { ...serviceErrorMapping, ...customErrorMapping };
-  
+
   const errorInfo = mapping[error.code] || {
     status: 500,
     message: 'Internal Server Error',
-    code: 'INTERNAL_ERROR'
+    code: 'INTERNAL_ERROR',
   };
-  
+
   sendErrorResponse(res, errorInfo.status, errorInfo.message, correlationId, null, errorInfo.code);
 };
 
@@ -112,7 +126,6 @@ export const createHandler = (handler, serviceName, methodName, customErrorMappi
 
       // Call the actual handler
       await handler(req, res);
-
     } catch (error) {
       handleGrpcError(res, error, req.correlationId, serviceName, methodName, customErrorMapping);
     }
@@ -135,4 +148,4 @@ export const createSimpleHandler = (handler, serviceName, methodName, customErro
       handleGrpcError(res, error, req.correlationId, serviceName, methodName, customErrorMapping);
     }
   };
-}; 
+};
