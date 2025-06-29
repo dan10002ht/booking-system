@@ -1,9 +1,11 @@
 import BaseRepository from './baseRepository.js';
+import IUserRepository from './interfaces/IUserRepository.js';
 import bcrypt from 'bcrypt';
 
 /**
  * User Repository với Master-Slave Pattern
  * Chỉ quản lý users table
+ * Extends BaseRepository và follows IUserRepository interface
  */
 class UserRepository extends BaseRepository {
   constructor() {
@@ -64,7 +66,7 @@ class UserRepository extends BaseRepository {
    */
   async findWithRoles(publicId) {
     // Lấy user trước
-    const user = await this.findOne({ public_id: publicId });
+    const user = await this.findByPublicId(publicId);
 
     if (!user) {
       return null;
@@ -161,7 +163,7 @@ class UserRepository extends BaseRepository {
    * Cập nhật last login (write vào master)
    */
   async updateLastLogin(userId) {
-    return await this.getMasterDb()('users').where('public_id', userId).update({
+    return await this.updateByPublicId(userId, {
       last_login_at: new Date(),
       updated_at: new Date(),
     });

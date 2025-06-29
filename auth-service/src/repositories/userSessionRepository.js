@@ -21,7 +21,7 @@ class UserSessionRepository extends BaseRepository {
       created_at: new Date(),
     };
 
-    const [session] = await this.create(normalizedData);
+    const session = await this.create(normalizedData);
     return session;
   }
 

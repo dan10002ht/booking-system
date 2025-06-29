@@ -10,7 +10,6 @@ export async function registerWithEmail(call, callback) {
   try {
     const { email, password, first_name, last_name, phone, role, ip_address, user_agent } =
       call.request;
-    console.log('call.request', call.request);
 
     if (!email || !password) {
       return callback({
@@ -30,9 +29,15 @@ export async function registerWithEmail(call, callback) {
       user_agent,
     };
 
+    console.log('Calling authService.registerWithEmail with:', {
+      email,
+      first_name,
+      last_name,
+      role,
+    });
     const result = await authService.registerWithEmail(userData);
 
-    callback(null, {
+    const response = {
       success: true,
       user: result.user,
       organization: result.organization,
@@ -40,9 +45,13 @@ export async function registerWithEmail(call, callback) {
       refresh_token: result.refreshToken,
       auth_type: result.authType,
       message: 'Email registration successful',
-    });
+    };
+
+    console.log('Sending response:', JSON.stringify(response, null, 2));
+    callback(null, response);
   } catch (error) {
     console.error('Email registration error:', error);
+    console.error('Error stack:', error.stack);
     callback({
       code: 13,
       message: error.message,
@@ -78,10 +87,11 @@ export async function registerWithOAuth(call, callback) {
     callback(null, {
       success: true,
       user: result.user,
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
       auth_type: result.authType,
-      is_new_user: result.isNewUser,
+      is_new_user: result.isNewUser || false,
+      organization: result.organization,
       message: result.message || `${provider} registration successful`,
     });
   } catch (error) {
@@ -120,8 +130,8 @@ export async function login(call, callback) {
     callback(null, {
       success: true,
       user: result.user,
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
       message: 'Login successful',
     });
   } catch (error) {
@@ -174,8 +184,8 @@ export async function refreshToken(call, callback) {
 
     callback(null, {
       success: true,
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
       message: 'Token refresh successful',
     });
   } catch (error) {

@@ -16,6 +16,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:grpc": "node test-grpc.js",
+    "test:repositories": "node scripts/test-repositories.js",
     "docker:build": "docker build -t booking-system/auth-service .",
     "docker:run": "docker run -p 50051:50051 booking-system/auth-service",
     "migrate:make": "knex migrate:make",
@@ -38,7 +39,8 @@
     "uuid": "^9.0.1",
     "knex": "^3.1.0",
     "pg": "^8.11.3",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "ioredis": "^5.3.2"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

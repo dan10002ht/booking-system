@@ -21,7 +21,7 @@ class RefreshTokenRepository extends BaseRepository {
       updated_at: new Date(),
     };
 
-    const [token] = await this.create(normalizedData);
+    const token = await this.create(normalizedData);
     return token;
   }
 

@@ -90,12 +90,40 @@ export function sanitizeFilters(filters) {
 }
 
 /**
- * Remove sensitive data from user object
+ * Remove sensitive data from user object and map to protobuf structure
  */
 export function sanitizeUserForResponse(user) {
   // eslint-disable-next-line no-unused-vars
-  const { password_hash, ...sanitizedUser } = user;
-  return sanitizedUser;
+  const { password_hash, internal_id, ...sanitizedUser } = user;
+
+  // Map database fields to protobuf User structure
+  return {
+    id: sanitizedUser.public_id, // Map public_id to id for protobuf
+    email: sanitizedUser.email,
+    first_name: sanitizedUser.first_name,
+    last_name: sanitizedUser.last_name,
+    phone: sanitizedUser.phone,
+    address: sanitizedUser.address,
+    city: sanitizedUser.city,
+    state: sanitizedUser.state,
+    country: sanitizedUser.country,
+    postal_code: sanitizedUser.postal_code,
+    profile_picture_url: sanitizedUser.profile_picture_url,
+    is_active: sanitizedUser.is_active,
+    is_verified: sanitizedUser.is_verified,
+    email_verified_at: sanitizedUser.email_verified_at
+      ? new Date(sanitizedUser.email_verified_at).toISOString()
+      : null,
+    phone_verified_at: sanitizedUser.phone_verified_at
+      ? new Date(sanitizedUser.phone_verified_at).toISOString()
+      : null,
+    last_login_at: sanitizedUser.last_login_at
+      ? new Date(sanitizedUser.last_login_at).toISOString()
+      : null,
+    auth_type: sanitizedUser.auth_type,
+    role: sanitizedUser.role,
+    permissions: sanitizedUser.permissions || [],
+  };
 }
 
 /**
@@ -132,16 +160,27 @@ export function sanitizeOrganizationInput(input) {
 }
 
 /**
- * Sanitize organization for response (remove sensitive data)
+ * Sanitize organization for response (remove sensitive data and map to protobuf structure)
  */
 export function sanitizeOrganizationForResponse(organization) {
   // eslint-disable-next-line no-unused-vars
-  const { created_at, updated_at, deleted_at, ...sanitizedOrganization } = organization;
+  const { created_at, updated_at, deleted_at, internal_id, ...sanitizedOrganization } =
+    organization;
 
   return {
-    ...sanitizedOrganization,
-    // Format dates if needed
-    created_at: created_at ? new Date(created_at).toISOString() : null,
-    updated_at: updated_at ? new Date(updated_at).toISOString() : null,
+    name: sanitizedOrganization.name,
+    description: sanitizedOrganization.description,
+    website_url: sanitizedOrganization.website_url,
+    logo_url: sanitizedOrganization.logo_url,
+    tax_id: sanitizedOrganization.tax_id,
+    business_license: sanitizedOrganization.business_license,
+    contact_person: sanitizedOrganization.contact_person,
+    contact_phone: sanitizedOrganization.contact_phone,
+    contact_email: sanitizedOrganization.contact_email,
+    address: sanitizedOrganization.address,
+    city: sanitizedOrganization.city,
+    state: sanitizedOrganization.state,
+    country: sanitizedOrganization.country,
+    postal_code: sanitizedOrganization.postal_code,
   };
 }

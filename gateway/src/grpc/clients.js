@@ -55,6 +55,8 @@ const loadProto = (protoFile) => {
 
 const createClient = (serviceUrl, serviceName, packageName) => {
   try {
+    console.log(`🔧 Creating gRPC client for ${serviceName} at ${serviceUrl}`);
+
     const proto = loadProto(`${serviceName}.proto`);
 
     const serviceClassName = `${serviceName.charAt(0).toUpperCase() + serviceName.slice(1)}Service`;
@@ -67,11 +69,15 @@ const createClient = (serviceUrl, serviceName, packageName) => {
       throw new Error(`Service '${serviceClassName}' not found in package '${packageName}'`);
     }
 
+    console.log(`✅ Proto loaded successfully for ${serviceName}`);
+
     const client = new proto[packageName][serviceClassName](
       serviceUrl,
       grpc.credentials.createInsecure(),
       clientOptions
     );
+
+    console.log(`✅ gRPC client created for ${serviceName}`);
 
     const deadline = new Date();
     deadline.setSeconds(deadline.getSeconds() + 30); // 30 seconds timeout

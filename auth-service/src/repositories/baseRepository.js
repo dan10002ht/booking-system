@@ -1,11 +1,14 @@
 import { masterDb, getSlaveDb } from '../config/databaseConfig.js';
+import IRepository from './interfaces/IRepository.js';
 
 /**
  * Base Repository với Master-Slave Pattern
  * Tự động route operations dựa trên loại operation
+ * Implements IRepository interface
  */
-class BaseRepository {
+class BaseRepository extends IRepository {
   constructor(tableName) {
+    super();
     this.tableName = tableName;
   }
 
@@ -107,6 +110,15 @@ class BaseRepository {
     return result.length > 0;
   }
 
+  /**
+   * Tìm record theo public_id
+   */
+  async findByPublicId(publicId) {
+    const results = await this.getSlaveDb().select('*').where('public_id', publicId).limit(1);
+
+    return results[0] || null;
+  }
+
   // ========== WRITE OPERATIONS (Sử dụng Master) ==========
 
   /**
@@ -146,6 +158,18 @@ class BaseRepository {
   }
 
   /**
+   * Cập nhật record theo public_id
+   */
+  async updateByPublicId(publicId, data) {
+    const [result] = await this.getMasterDb()
+      .where('public_id', publicId)
+      .update(data)
+      .returning('*');
+
+    return result;
+  }
+
+  /**
    * Xóa record theo ID
    */
   async deleteById(id) {
@@ -161,6 +185,15 @@ class BaseRepository {
     const results = await this.getMasterDb().where(conditions).del().returning('*');
 
     return results;
+  }
+
+  /**
+   * Xóa record theo public_id
+   */
+  async deleteByPublicId(publicId) {
+    const [result] = await this.getMasterDb().where('public_id', publicId).del().returning('*');
+
+    return result;
   }
 
   /**

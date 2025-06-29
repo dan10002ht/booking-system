@@ -17,6 +17,7 @@ import {
 } from '../../utils/sanitizers.js';
 import * as organizationManagementService from './organizationManagementService.js';
 import * as oauthService from './oauthService.js';
+import cacheService from './cacheService.js';
 
 // Get repository instances from factory
 const userRepository = getUserRepository();
@@ -41,20 +42,17 @@ export async function registerWithEmail(registerData) {
 
     const sanitizedData = sanitizeUserInput(userData);
 
-    // Check if email already exists
     const existingUser = await userRepository.findByEmail(sanitizedData.email);
     if (existingUser) {
       throw new Error('Email is already in use');
     }
 
-    // Create user with email authentication
     const newUser = await userRepository.createUser({
       ...sanitizedData,
       auth_type: 'email',
       is_active: true,
     });
 
-    // Assign default role based on userData.role or default to 'individual'
     const roleName = currentRole || 'individual';
     const role = await roleRepository.findByName(roleName);
 
@@ -62,10 +60,8 @@ export async function registerWithEmail(registerData) {
       throw new Error(`Invalid role: ${roleName}`);
     }
 
-    // Assign role to user
     await userRoleRepository.assignRoleToUser(newUser.public_id, role.public_id);
 
-    // Create organization if user role is 'organization'
     let organization = null;
     if (userData.organization) {
       try {
@@ -74,42 +70,48 @@ export async function registerWithEmail(registerData) {
           userData.organization
         );
       } catch (orgError) {
-        // If organization creation fails, delete the user and throw error
         await userRepository.deleteUser(newUser.public_id);
         throw new Error(`Organization creation failed: ${orgError.message}`);
       }
     }
 
-    // Get user with roles for token generation
     const userWithRoles = await userRepository.findWithRoles(newUser.public_id);
     const primaryRole =
       userWithRoles.roles && userWithRoles.roles.length > 0 ? userWithRoles.roles[0] : role;
 
-    // Generate tokens and create session
+    const userProfile = sanitizeUserForResponse({ ...newUser, role: primaryRole.name });
+
     const tokens = generateTokens(newUser.public_id, {
       email: newUser.email,
       role: primaryRole.name,
     });
 
-    // Save refresh token to refresh_tokens table
-    await refreshTokenRepository.createRefreshToken({
-      user_id: newUser.public_id,
-      token_hash: tokens.refreshToken, // In production, hash this
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    });
-
-    await userSessionRepository.createUserSession(newUser.public_id, {
+    const sessionData = {
       session_id: uuidv4(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       ip_address: ip_address,
       user_agent: user_agent,
-    });
+    };
+
+    // Prepare refresh token data
+    const refreshTokenData = {
+      user_id: newUser.public_id,
+      token_hash: tokens.refreshToken,
+    };
+
+    await Promise.all([
+      cacheService.cacheUserProfile(newUser.public_id, userProfile),
+      cacheService.cacheUserRoles(newUser.public_id, userWithRoles.roles || []),
+
+      refreshTokenRepository.createRefreshToken(refreshTokenData),
+      userSessionRepository.createUserSession(newUser.public_id, sessionData),
+    ]);
 
     return {
-      user: sanitizeUserForResponse({ ...newUser, role: primaryRole.name }),
+      user: userProfile,
       organization: organization,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
       authType: 'email',
     };
   } catch (error) {
@@ -159,6 +161,11 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
           ? userWithRoles.roles[0]
           : { name: 'individual' };
 
+      // Cache user profile and roles
+      const userProfile = sanitizeUserForResponse({ ...existingUser, role: primaryRole.name });
+      await cacheService.cacheUserProfile(existingUser.public_id, userProfile);
+      await cacheService.cacheUserRoles(existingUser.public_id, userWithRoles.roles || []);
+
       // Generate tokens and create session
       const tokens = generateTokens(existingUser.public_id, {
         email: existingUser.email,
@@ -181,8 +188,8 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
 
       return {
         user: sanitizeUserForResponse({ ...existingUser, role: primaryRole.name }),
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
         authType: 'oauth',
         isNewUser: false,
       };
@@ -210,6 +217,14 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
           ? userWithRoles.roles[0]
           : { name: 'individual' };
 
+      // Cache user profile and roles
+      const userProfile = sanitizeUserForResponse({
+        ...existingUserByEmail,
+        role: primaryRole.name,
+      });
+      await cacheService.cacheUserProfile(existingUserByEmail.public_id, userProfile);
+      await cacheService.cacheUserRoles(existingUserByEmail.public_id, userWithRoles.roles || []);
+
       // Generate tokens and create session
       const tokens = generateTokens(existingUserByEmail.public_id, {
         email: existingUserByEmail.email,
@@ -232,8 +247,8 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
 
       return {
         user: sanitizeUserForResponse({ ...existingUserByEmail, role: primaryRole.name }),
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
         authType: 'oauth',
         isNewUser: false,
         message: `Linked ${provider} account to existing email`,
@@ -266,6 +281,11 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       expires_at: oauthData.expires_at ? new Date(oauthData.expires_at * 1000) : null,
     });
 
+    // Cache user profile and roles
+    const userProfile = sanitizeUserForResponse({ ...newUser, role: 'individual' });
+    await cacheService.cacheUserProfile(newUser.public_id, userProfile);
+    await cacheService.cacheUserRoles(newUser.public_id, []);
+
     // Generate tokens and create session
     const tokens = generateTokens(newUser.public_id, {
       email: newUser.email,
@@ -288,8 +308,8 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
 
     return {
       user: sanitizeUserForResponse({ ...newUser, role: 'individual' }),
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
       authType: 'oauth',
       isNewUser: true,
     };
@@ -310,57 +330,61 @@ export async function register(userData) {
  */
 export async function login(email, password, sessionData = {}) {
   try {
-    // Sanitize session data
     const sanitizedSessionData = sanitizeSessionData(sessionData);
 
-    // Verify credentials
     const user = await userRepository.verifyCredentials(email, password);
     if (!user) {
       throw new Error('Invalid email or password');
     }
 
-    // Check user status
     if (!user.is_active) {
       throw new Error('Account is locked or not activated');
     }
 
-    // Update last login
     await userRepository.updateLastLogin(user.public_id);
 
-    // Get user with roles for token generation
     const userWithRoles = await userRepository.findWithRoles(user.public_id);
     const primaryRole =
       userWithRoles.roles && userWithRoles.roles.length > 0
         ? userWithRoles.roles[0]
         : { name: 'individual' };
 
-    // Generate tokens
-    const tokens = await generateTokens(user.public_id, {
+    const userProfile = sanitizeUserForResponse({ ...user, role: primaryRole.name });
+    const tokens = generateTokens(user.public_id, {
       email: user.email,
       role: primaryRole.name,
     });
 
-    // Save refresh token to refresh_tokens table
-    await refreshTokenRepository.createRefreshToken({
-      user_id: user.public_id,
-      token_hash: tokens.refreshToken, // In production, hash this
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    });
-
-    // Create session
-    await userSessionRepository.createUserSession(user.public_id, {
+    const sessionInfo = {
       session_id: uuidv4(),
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       ip_address: sanitizedSessionData.ip_address,
       user_agent: sanitizedSessionData.user_agent,
-    });
+    };
+
+    const refreshTokenData = {
+      user_id: user.public_id,
+      token_hash: tokens.refreshToken,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+    };
+
+    // Execute all parallel operations that don't depend on each other
+    await Promise.all([
+      cacheService.cacheUserProfile(user.public_id, userProfile),
+      cacheService.cacheUserRoles(user.public_id, userWithRoles.roles || []),
+
+      refreshTokenRepository.createRefreshToken(refreshTokenData),
+      userSessionRepository.createUserSession(user.public_id, sessionInfo),
+    ]);
+    console.log('userProfile', userProfile);
 
     return {
-      user: sanitizeUserForResponse({ ...user, role: primaryRole.name }),
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+      user: userProfile,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
     };
   } catch (error) {
+    console.log('error', error.message);
     throw new Error(`Login failed: ${error.message}`);
   }
 }
@@ -370,15 +394,24 @@ export async function login(email, password, sessionData = {}) {
  */
 export async function logout(userId, sessionId = null) {
   try {
+    const operations = [];
+
     if (sessionId) {
       // Delete specific session
-      await userSessionRepository.deleteUserSession(sessionId);
+      operations.push(userSessionRepository.deleteUserSession(sessionId));
     } else {
-      // Delete all user sessions
-      await userSessionRepository.deleteAllUserSessions(userId);
-      // Revoke all refresh tokens
-      await refreshTokenRepository.revokeAllUserTokens(userId);
+      // Delete all user sessions and revoke all refresh tokens
+      operations.push(
+        userSessionRepository.deleteAllUserSessions(userId),
+        refreshTokenRepository.revokeAllUserTokens(userId)
+      );
     }
+
+    // Invalidate user cache
+    operations.push(cacheService.invalidateUserCache(userId));
+
+    // Execute all operations in parallel
+    await Promise.all(operations);
 
     return { message: 'Logout successful' };
   } catch (error) {
@@ -428,17 +461,23 @@ export async function refreshToken(refreshToken) {
     // Generate new tokens
     const tokens = await generateTokensForUser(decoded.userId);
 
-    // Update refresh token in refresh_tokens table
-    await refreshTokenRepository.revokeRefreshToken(tokenRecord.id);
-
-    // Create new refresh token
-    await refreshTokenRepository.createRefreshToken({
+    // Prepare new refresh token data
+    const newRefreshTokenData = {
       user_id: decoded.userId,
       token_hash: tokens.refreshToken, // In production, hash this
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-    });
+    };
 
-    return tokens;
+    // Execute token operations in parallel
+    await Promise.all([
+      refreshTokenRepository.revokeRefreshToken(tokenRecord.id),
+      refreshTokenRepository.createRefreshToken(newRefreshTokenData),
+    ]);
+
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+    };
   } catch (error) {
     throw new Error(`Refresh token failed: ${error.message}`);
   }
@@ -449,6 +488,12 @@ export async function refreshToken(refreshToken) {
  */
 export async function verifyToken(token) {
   try {
+    // Check cache first
+    const cachedValidation = await cacheService.getCachedTokenValidation(token);
+    if (cachedValidation) {
+      return cachedValidation;
+    }
+
     const decoded = verifyAccessToken(token);
 
     // Check if user exists and is active
@@ -464,12 +509,17 @@ export async function verifyToken(token) {
         ? userWithRoles.roles[0]
         : { name: 'individual' };
 
-    return {
+    const validationData = {
       userId: decoded.userId,
       email: decoded.email,
       role: primaryRole.name,
       user: sanitizeUserForResponse({ ...user, role: primaryRole.name }),
     };
+
+    // Cache the validation result
+    await cacheService.cacheTokenValidation(token, validationData);
+
+    return validationData;
   } catch (error) {
     throw new Error(`Invalid token: ${error.message}`);
   }
@@ -497,8 +547,11 @@ export async function changePassword(userId, currentPassword, newPassword) {
     // Update password
     await userRepository.updatePassword(userId, newPassword);
 
-    // Delete all sessions to force re-login
-    await userSessionRepository.deleteAllUserSessions(userId);
+    // Execute cleanup operations in parallel
+    await Promise.all([
+      userSessionRepository.deleteAllUserSessions(userId),
+      cacheService.invalidateUserCache(userId),
+    ]);
 
     return { message: 'Password changed successfully' };
   } catch (error) {
@@ -514,11 +567,13 @@ export async function changePassword(userId, currentPassword, newPassword) {
 export async function healthCheck() {
   try {
     const dbHealth = await checkDatabaseHealth();
+    const cacheHealth = await cacheService.healthCheck();
 
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       database: dbHealth,
+      cache: cacheHealth,
       service: 'auth-service',
     };
   } catch (error) {

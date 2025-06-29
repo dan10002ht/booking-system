@@ -7,8 +7,8 @@
  *       required:
  *         - email
  *         - password
- *         - firstName
- *         - lastName
+ *         - first_name
+ *         - last_name
  *       properties:
  *         email:
  *           type: string
@@ -18,10 +18,10 @@
  *           type: string
  *           minLength: 8
  *           description: User password (min 8 characters)
- *         firstName:
+ *         first_name:
  *           type: string
  *           description: User first name
- *         lastName:
+ *         last_name:
  *           type: string
  *           description: User last name
  *     OAuthRegistration:
@@ -62,28 +62,28 @@
  *     RefreshToken:
  *       type: object
  *       required:
- *         - refreshToken
+ *         - refresh_token
  *       properties:
- *         refreshToken:
+ *         refresh_token:
  *           type: string
  *           description: Refresh token for getting new access token
  *     AuthResponse:
  *       type: object
  *       properties:
- *         accessToken:
+ *         access_token:
  *           type: string
  *           description: JWT access token
- *         refreshToken:
+ *         refresh_token:
  *           type: string
  *           description: JWT refresh token
- *         expiresIn:
+ *         expires_in:
  *           type: integer
  *           description: Token expiration time in seconds
- *         authType:
+ *         auth_type:
  *           type: string
  *           enum: [email, oauth]
  *           description: Authentication type
- *         isNewUser:
+ *         is_new_user:
  *           type: boolean
  *           description: Whether this is a new user (for OAuth)
  */
