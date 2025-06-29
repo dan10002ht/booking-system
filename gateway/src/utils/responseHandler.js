@@ -127,6 +127,7 @@ export const createHandler = (handler, serviceName, methodName, customErrorMappi
       // Call the actual handler
       await handler(req, res);
     } catch (error) {
+      console.log('error', error);
       handleGrpcError(res, error, req.correlationId, serviceName, methodName, customErrorMapping);
     }
   };

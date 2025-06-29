@@ -207,11 +207,7 @@ export async function seed(knex) {
   // Check if role_permissions already exist
   const existingRolePermissions = await knex('role_permissions')
     .select('role_id', 'permission_id')
-    .whereIn('role_id', [
-      adminRole.public_id,
-      organizationRole.public_id,
-      individualRole.public_id,
-    ]);
+    .whereIn('role_id', [adminRole.id, organizationRole.id, individualRole.id]);
 
   const existingRolePermissionPairs = existingRolePermissions.map(
     (rp) => `${rp.role_id}-${rp.permission_id}`
@@ -221,12 +217,12 @@ export async function seed(knex) {
 
   // Admin gets all permissions
   permissions.forEach((permission) => {
-    const pairKey = `${adminRole.public_id}-${permission.public_id}`;
+    const pairKey = `${adminRole.id}-${permission.id}`;
     if (!existingRolePermissionPairs.includes(pairKey)) {
       rolePermissions.push({
         public_id: knex.raw('gen_random_uuid()'),
-        role_id: adminRole.public_id,
-        permission_id: permission.public_id,
+        role_id: adminRole.id,
+        permission_id: permission.id,
       });
     }
   });
@@ -241,12 +237,12 @@ export async function seed(knex) {
   );
 
   orgPermissions.forEach((permission) => {
-    const pairKey = `${organizationRole.public_id}-${permission.public_id}`;
+    const pairKey = `${organizationRole.id}-${permission.id}`;
     if (!existingRolePermissionPairs.includes(pairKey)) {
       rolePermissions.push({
         public_id: knex.raw('gen_random_uuid()'),
-        role_id: organizationRole.public_id,
-        permission_id: permission.public_id,
+        role_id: organizationRole.id,
+        permission_id: permission.id,
       });
     }
   });
@@ -260,12 +256,12 @@ export async function seed(knex) {
   );
 
   individualPermissions.forEach((permission) => {
-    const pairKey = `${individualRole.public_id}-${permission.public_id}`;
+    const pairKey = `${individualRole.id}-${permission.id}`;
     if (!existingRolePermissionPairs.includes(pairKey)) {
       rolePermissions.push({
         public_id: knex.raw('gen_random_uuid()'),
-        role_id: individualRole.public_id,
-        permission_id: permission.public_id,
+        role_id: individualRole.id,
+        permission_id: permission.id,
       });
     }
   });
@@ -296,13 +292,13 @@ export async function seed(knex) {
 
   // Assign admin role to admin user
   const existingUserRole = await knex('user_roles')
-    .where({ user_id: adminUser.public_id, role_id: adminRole.public_id })
+    .where({ user_id: adminUser.id, role_id: adminRole.id })
     .first();
   if (!existingUserRole) {
     await knex('user_roles').insert({
       public_id: knex.raw('gen_random_uuid()'),
-      user_id: adminUser.public_id,
-      role_id: adminRole.public_id,
+      user_id: adminUser.id,
+      role_id: adminRole.id,
     });
   }
 
@@ -315,7 +311,7 @@ export async function seed(knex) {
       .insert([
         {
           public_id: knex.raw('gen_random_uuid()'),
-          organization_id: org.public_id,
+          organization_id: org.id,
           name: 'admin',
           description: 'Organization administrator with full control',
           permissions: JSON.stringify({
@@ -331,7 +327,7 @@ export async function seed(knex) {
         },
         {
           public_id: knex.raw('gen_random_uuid()'),
-          organization_id: org.public_id,
+          organization_id: org.id,
           name: 'manager',
           description: 'Event manager with event and booking management',
           permissions: JSON.stringify({
@@ -347,7 +343,7 @@ export async function seed(knex) {
         },
         {
           public_id: knex.raw('gen_random_uuid()'),
-          organization_id: org.public_id,
+          organization_id: org.id,
           name: 'member',
           description: 'Organization member with basic access',
           permissions: JSON.stringify({
@@ -361,7 +357,7 @@ export async function seed(knex) {
         },
         {
           public_id: knex.raw('gen_random_uuid()'),
-          organization_id: org.public_id,
+          organization_id: org.id,
           name: 'viewer',
           description: 'Read-only access to organization data',
           permissions: JSON.stringify({
@@ -377,7 +373,7 @@ export async function seed(knex) {
       .returning('*');
 
     // Get the organization owner (user who created the organization)
-    const orgOwner = await knex('users').where('public_id', org.user_id).first();
+    const orgOwner = await knex('users').where('id', org.user_id).first();
 
     if (orgOwner) {
       // Find admin role
@@ -386,9 +382,9 @@ export async function seed(knex) {
       // Add organization owner as admin member
       await knex('organization_members').insert({
         public_id: knex.raw('gen_random_uuid()'),
-        organization_id: org.public_id,
+        organization_id: org.id,
         user_id: org.user_id,
-        role_id: adminRole.public_id,
+        role_id: adminRole.id,
         status: 'active',
         joined_at: org.created_at,
         last_active_at: new Date(),

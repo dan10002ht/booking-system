@@ -1,5 +1,4 @@
 import BaseRepository from './baseRepository.js';
-import IUserRepository from './interfaces/IUserRepository.js';
 import bcrypt from 'bcrypt';
 
 /**
@@ -72,12 +71,12 @@ class UserRepository extends BaseRepository {
       return null;
     }
 
-    // Lấy roles của user
+    // Lấy roles của user bằng internal id
     const roles = await this.getSlaveDb()
       .select('roles.public_id as id', 'roles.name', 'roles.description')
       .from('roles')
-      .join('user_roles', 'roles.public_id', 'user_roles.role_id')
-      .where('user_roles.user_id', publicId);
+      .join('user_roles', 'roles.id', 'user_roles.role_id')
+      .where('user_roles.user_id', user.id);
 
     // Trả về user với roles
     return {
@@ -90,9 +89,12 @@ class UserRepository extends BaseRepository {
    * Lấy user với organization (read từ slave)
    */
   async findWithOrganization(publicId) {
+    const user = await this.findByPublicId(publicId);
+    if (!user) return null;
+
     return await this.getSlaveDb()
-      .leftJoin('organizations', 'users.public_id', 'organizations.user_id')
-      .where('users.public_id', publicId)
+      .leftJoin('organizations', 'users.id', 'organizations.user_id')
+      .where('users.id', user.id)
       .select('users.*', 'organizations.*')
       .first();
   }

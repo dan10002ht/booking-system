@@ -17,13 +17,13 @@ const permissionRepository = getPermissionRepository();
  */
 export async function getUserPermissions(userId) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
 
-    // Get user permissions from database
-    const permissions = await permissionRepository.getUserPermissions(userId);
+    // Get user permissions from database using internal id
+    const permissions = await permissionRepository.getUserPermissions(user.id);
 
     // Format permissions for response
     const formattedPermissions = permissions.map((permission) => ({
@@ -48,7 +48,12 @@ export async function getUserPermissions(userId) {
  */
 export async function hasPermission(userId, permissionName) {
   try {
-    const permissions = await permissionRepository.getUserPermissions(userId);
+    const user = await userRepository.findByPublicId(userId);
+    if (!user) {
+      return false;
+    }
+
+    const permissions = await permissionRepository.getUserPermissions(user.id);
     return permissions.some((permission) => permission.name === permissionName);
   } catch (error) {
     throw new Error(`Failed to check permission: ${error.message}`);
@@ -60,7 +65,12 @@ export async function hasPermission(userId, permissionName) {
  */
 export async function hasResourcePermission(userId, resource, action) {
   try {
-    const permissions = await permissionRepository.getUserPermissions(userId);
+    const user = await userRepository.findByPublicId(userId);
+    if (!user) {
+      return false;
+    }
+
+    const permissions = await permissionRepository.getUserPermissions(user.id);
     return permissions.some(
       (permission) => permission.resource === resource && permission.action === action
     );
@@ -76,12 +86,12 @@ export async function hasResourcePermission(userId, resource, action) {
  */
 export async function getUserRoles(userId) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
 
-    const roles = await roleRepository.findByUserId(userId);
+    const roles = await roleRepository.findByUserId(user.id);
     return roles.map((role) => ({
       id: role.id,
       name: role.name,
@@ -98,31 +108,31 @@ export async function getUserRoles(userId) {
 export async function assignRoleToUser(userId, roleId) {
   try {
     // Check if user exists
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
 
     // Check if role exists
-    const role = await roleRepository.findById(roleId);
+    const role = await roleRepository.findByPublicId(roleId);
     if (!role) {
       throw new Error('Role not found');
     }
 
     // Check if user already has this role
-    const existingRoles = await roleRepository.findByUserId(userId);
-    const hasRole = existingRoles.some((r) => r.id === roleId);
+    const existingRoles = await roleRepository.findByUserId(user.id);
+    const hasRole = existingRoles.some((r) => r.id === role.id);
     if (hasRole) {
       throw new Error('User already has this role');
     }
 
-    // Assign role
-    await roleRepository.assignToUser(userId, roleId);
+    // Assign role using internal ids
+    await roleRepository.assignToUser(user.id, role.id);
 
     return {
       message: 'Role assigned successfully',
       role: {
-        id: role.id,
+        id: role.public_id,
         name: role.name,
         description: role.description,
       },
@@ -137,15 +147,26 @@ export async function assignRoleToUser(userId, roleId) {
  */
 export async function removeRoleFromUser(userId, roleId) {
   try {
+    // Get user and role by public ids
+    const user = await userRepository.findByPublicId(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const role = await roleRepository.findByPublicId(roleId);
+    if (!role) {
+      throw new Error('Role not found');
+    }
+
     // Check if user has this role
-    const existingRoles = await roleRepository.findByUserId(userId);
-    const hasRole = existingRoles.some((r) => r.id === roleId);
+    const existingRoles = await roleRepository.findByUserId(user.id);
+    const hasRole = existingRoles.some((r) => r.id === role.id);
     if (!hasRole) {
       throw new Error('User does not have this role');
     }
 
-    // Remove role
-    await roleRepository.removeFromUser(userId, roleId);
+    // Remove role using internal ids
+    await roleRepository.removeFromUser(user.id, role.id);
 
     return {
       message: 'Role removed successfully',

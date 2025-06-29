@@ -29,12 +29,6 @@ export async function registerWithEmail(call, callback) {
       user_agent,
     };
 
-    console.log('Calling authService.registerWithEmail with:', {
-      email,
-      first_name,
-      last_name,
-      role,
-    });
     const result = await authService.registerWithEmail(userData);
 
     const response = {
@@ -47,7 +41,6 @@ export async function registerWithEmail(call, callback) {
       message: 'Email registration successful',
     };
 
-    console.log('Sending response:', JSON.stringify(response, null, 2));
     callback(null, response);
   } catch (error) {
     console.error('Email registration error:', error);

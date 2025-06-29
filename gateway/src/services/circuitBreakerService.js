@@ -11,9 +11,9 @@ class CircuitBreakerService {
     this.breakers = new Map();
     this.defaultOptions = {
       timeout: config.circuitBreaker.timeout || 30000,
-      errorThresholdPercentage: 50,
-      resetTimeout: 30000,
-      volumeThreshold: 5,
+      errorThresholdPercentage: config.circuitBreaker.errorThresholdPercentage || 50,
+      resetTimeout: config.circuitBreaker.resetTimeout || 30000,
+      volumeThreshold: config.circuitBreaker.volumeThreshold || 5,
       rollingCountTimeout: 60000,
       rollingCountBuckets: 10,
     };
@@ -27,6 +27,38 @@ class CircuitBreakerService {
    * @returns {CircuitBreaker} Circuit breaker instance
    */
   createBreaker(name, fn, options = {}) {
+    // Bypass circuit breaker in development mode
+    if (!config.circuitBreaker.enabled) {
+      logger.info(`Circuit breaker disabled for '${name}' in development mode`, {
+        service: name,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Return a mock circuit breaker that just calls the function directly
+      const mockBreaker = {
+        fire: async (...args) => {
+          try {
+            return await fn(...args);
+          } catch (error) {
+            logger.error(`Direct call failed for '${name}'`, {
+              service: name,
+              error: error.message,
+              timestamp: new Date().toISOString(),
+            });
+            throw error;
+          }
+        },
+        stats: { totalCount: 0, errorCount: 0, errorPercentage: 0 },
+        opened: false,
+        close: () => {},
+        open: () => {},
+        on: () => {},
+      };
+
+      this.breakers.set(name, mockBreaker);
+      return mockBreaker;
+    }
+
     const breakerOptions = { ...this.defaultOptions, ...options };
 
     const breaker = new CircuitBreaker(fn, breakerOptions);
@@ -61,7 +93,7 @@ class CircuitBreakerService {
       });
     });
 
-    breaker.on('success', (_) => {
+    breaker.on('success', () => {
       logger.debug(`Circuit breaker '${name}' call succeeded`, {
         service: name,
         timestamp: new Date().toISOString(),
@@ -240,7 +272,7 @@ class CircuitBreakerService {
    * Reset all circuit breakers
    */
   resetAllBreakers() {
-    for (const [name, breaker] of this.breakers) {
+    for (const breaker of this.breakers.values()) {
       breaker.close();
     }
     logger.info('All circuit breakers reset', {

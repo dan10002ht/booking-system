@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 // Configuration constants
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -19,10 +20,25 @@ export function generateAccessToken(payload) {
 }
 
 /**
- * Generate refresh token
+ * Generate refresh token with random factor to ensure uniqueness
  */
 export function generateRefreshToken(userId) {
-  return jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_IN });
+  // Add random factor to ensure uniqueness
+  const randomFactor = crypto.randomBytes(32).toString('hex');
+  const timestamp = Date.now();
+
+  return jwt.sign(
+    {
+      userId,
+      type: 'refresh',
+      random: randomFactor,
+      timestamp: timestamp,
+    },
+    JWT_SECRET,
+    {
+      expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+    }
+  );
 }
 
 /**

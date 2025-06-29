@@ -13,6 +13,7 @@ class RefreshTokenRepository extends BaseRepository {
 
   /**
    * Tạo refresh token (write vào master)
+   * Revoke token cũ của user trước khi tạo mới để tránh trùng lặp
    */
   async createRefreshToken(tokenData) {
     const normalizedData = {
@@ -20,6 +21,9 @@ class RefreshTokenRepository extends BaseRepository {
       created_at: new Date(),
       updated_at: new Date(),
     };
+
+    // Revoke existing tokens for this user to avoid conflicts
+    await this.revokeAllByUserId(tokenData.user_id);
 
     const token = await this.create(normalizedData);
     return token;
@@ -30,6 +34,13 @@ class RefreshTokenRepository extends BaseRepository {
    */
   async findByHash(tokenHash) {
     return await this.findOne({ token_hash: tokenHash });
+  }
+
+  /**
+   * Alias cho findByHash để tương thích với service
+   */
+  async findRefreshTokenByHash(tokenHash) {
+    return this.findByHash(tokenHash);
   }
 
   /**
@@ -52,12 +63,26 @@ class RefreshTokenRepository extends BaseRepository {
   }
 
   /**
+   * Alias cho revokeById để tương thích với service
+   */
+  async revokeRefreshToken(id) {
+    return this.revokeById(id);
+  }
+
+  /**
    * Revoke tất cả tokens của user (write vào master)
    */
   async revokeAllByUserId(userId) {
     return await this.getMasterDb()
       .where({ user_id: userId })
       .update({ is_revoked: true, updated_at: new Date() });
+  }
+
+  /**
+   * Alias cho revokeAllByUserId để tương thích với service
+   */
+  async revokeAllUserTokens(userId) {
+    return this.revokeAllByUserId(userId);
   }
 
   /**

@@ -1,5 +1,4 @@
 import { getUserRepository } from '../../repositories/repositoryFactory.js';
-import { generateTokens } from '../../utils/tokenUtils.js';
 import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 import crypto from 'crypto';
 import speakeasy from 'speakeasy';
@@ -15,7 +14,7 @@ const userRepository = getUserRepository();
  */
 export async function enable2FA(userId) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -34,7 +33,7 @@ export async function enable2FA(userId) {
     const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
 
     // Store secret temporarily (not enabled yet)
-    await userRepository.updateUser(userId, {
+    await userRepository.updateUser(user.id, {
       two_factor_secret: secret.base32,
       updated_at: new Date(),
     });
@@ -55,7 +54,7 @@ export async function enable2FA(userId) {
  */
 export async function verifyAndEnable2FA(userId, token) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -81,7 +80,7 @@ export async function verifyAndEnable2FA(userId, token) {
     }
 
     // Enable 2FA
-    await userRepository.updateUser(userId, {
+    await userRepository.updateUser(user.id, {
       two_factor_enabled: true,
       updated_at: new Date(),
     });
@@ -99,7 +98,7 @@ export async function verifyAndEnable2FA(userId, token) {
  */
 export async function disable2FA(userId, token) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -121,7 +120,7 @@ export async function disable2FA(userId, token) {
     }
 
     // Disable 2FA
-    await userRepository.updateUser(userId, {
+    await userRepository.updateUser(user.id, {
       two_factor_enabled: false,
       two_factor_secret: null,
       updated_at: new Date(),
@@ -140,7 +139,7 @@ export async function disable2FA(userId, token) {
  */
 export async function verify2FA(userId, token) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -175,7 +174,7 @@ export async function verify2FA(userId, token) {
  */
 export async function generateBackupCodes(userId) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -196,7 +195,7 @@ export async function generateBackupCodes(userId) {
       crypto.createHash('sha256').update(code).digest('hex')
     );
 
-    await userRepository.updateUser(userId, {
+    await userRepository.updateUser(user.id, {
       two_factor_backup_codes: JSON.stringify(hashedCodes),
       updated_at: new Date(),
     });
@@ -215,7 +214,7 @@ export async function generateBackupCodes(userId) {
  */
 export async function verifyBackupCode(userId, backupCode) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -241,7 +240,7 @@ export async function verifyBackupCode(userId, backupCode) {
 
     // Remove used backup code
     backupCodes.splice(codeIndex, 1);
-    await userRepository.updateUser(userId, {
+    await userRepository.updateUser(user.id, {
       two_factor_backup_codes: JSON.stringify(backupCodes),
       updated_at: new Date(),
     });
@@ -260,7 +259,7 @@ export async function verifyBackupCode(userId, backupCode) {
  */
 export async function get2FAStatus(userId) {
   try {
-    const user = await userRepository.findById(userId);
+    const user = await userRepository.findByPublicId(userId);
     if (!user) {
       throw new Error('User not found');
     }

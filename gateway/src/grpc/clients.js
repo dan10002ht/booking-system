@@ -19,6 +19,13 @@ const clientOptions = {
   'grpc.http2.min_ping_interval_without_data_ms': 300000,
   'grpc.max_receive_message_length': config.grpc.authService.maxReceiveMessageLength,
   'grpc.max_send_message_length': config.grpc.authService.maxSendMessageLength,
+  'grpc.initial_reconnect_backoff_ms': 1000,
+  'grpc.max_reconnect_backoff_ms': 30000,
+  'grpc.use_local_subchannel_pool': 1,
+  'grpc.max_concurrent_streams': 100,
+  'grpc.initial_window_size': 65536,
+  'grpc.max_send_initial_metadata': 100,
+  'grpc.max_receive_initial_metadata': 100,
 };
 
 const loadProto = (protoFile) => {
@@ -79,8 +86,9 @@ const createClient = (serviceUrl, serviceName, packageName) => {
 
     console.log(`✅ gRPC client created for ${serviceName}`);
 
+    // Increase deadline timeout to 60 seconds to match circuit breaker
     const deadline = new Date();
-    deadline.setSeconds(deadline.getSeconds() + 30); // 30 seconds timeout
+    deadline.setSeconds(deadline.getSeconds() + 60); // 60 seconds timeout
 
     const wrappedClient = {};
     // Lấy đủ method từ cả instance và prototype
@@ -96,28 +104,67 @@ const createClient = (serviceUrl, serviceName, packageName) => {
         const breaker = circuitBreakerService.createGrpcBreaker(
           serviceName,
           method,
-          (request) => {
-            return new Promise((resolve, reject) => {
-              const metadata = new grpc.Metadata();
-              metadata.add('correlation-id', request.correlationId || 'unknown');
+          async (request) => {
+            const maxRetries = 3;
 
-              client[method](request, metadata, { deadline }, (error, response) => {
-                if (error) {
-                  logger.error(`gRPC call failed: ${serviceName}.${method}`, {
-                    error: error.message,
-                    code: error.code,
-                    details: error.details,
-                    correlationId: request.correlationId,
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+              try {
+                return await new Promise((resolve, reject) => {
+                  const metadata = new grpc.Metadata();
+                  metadata.add('correlation-id', request.correlationId || 'unknown');
+
+                  client[method](request, metadata, { deadline }, (error, response) => {
+                    if (error) {
+                      logger.error(
+                        `gRPC call failed: ${serviceName}.${method} (attempt ${attempt})`,
+                        {
+                          error: error.message,
+                          code: error.code,
+                          details: error.details,
+                          correlationId: request.correlationId,
+                          attempt,
+                        }
+                      );
+                      reject(error);
+                    } else {
+                      resolve(response);
+                    }
                   });
-                  reject(error);
-                } else {
-                  resolve(response);
+                });
+              } catch (error) {
+                // Don't retry on certain errors
+                if (
+                  error.code === grpc.status.INVALID_ARGUMENT ||
+                  error.code === grpc.status.PERMISSION_DENIED ||
+                  error.code === grpc.status.UNAUTHENTICATED
+                ) {
+                  throw error;
                 }
-              });
-            });
+
+                // If this is the last attempt, throw the error
+                if (attempt === maxRetries) {
+                  throw error;
+                }
+
+                // Wait before retrying (exponential backoff)
+                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+                logger.warn(
+                  `Retrying gRPC call: ${serviceName}.${method} (attempt ${attempt + 1}/${maxRetries})`,
+                  {
+                    service: serviceName,
+                    method,
+                    attempt,
+                    delay,
+                    error: error.message,
+                  }
+                );
+
+                await new Promise((resolve) => setTimeout(resolve, delay));
+              }
+            }
           },
           {
-            timeout: 60000,
+            timeout: 65000, // Slightly higher than gRPC deadline to avoid conflicts
             errorThresholdPercentage: 50,
             resetTimeout: 30000,
           }

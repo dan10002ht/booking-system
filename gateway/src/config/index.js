@@ -65,8 +65,13 @@ const config = {
 
   // Circuit Breaker Configuration
   circuitBreaker: {
-    threshold: parseInt(process.env.CIRCUIT_BREAKER_THRESHOLD) || 5,
-    timeout: parseInt(process.env.CIRCUIT_BREAKER_TIMEOUT) || 30000,
+    threshold: parseInt(process.env.CIRCUIT_BREAKER_THRESHOLD),
+    timeout: parseInt(process.env.CIRCUIT_BREAKER_TIMEOUT),
+    resetTimeout: parseInt(process.env.CIRCUIT_BREAKER_RESET_TIMEOUT),
+    errorThresholdPercentage: parseInt(process.env.CIRCUIT_BREAKER_ERROR_PERCENTAGE),
+    volumeThreshold: parseInt(process.env.CIRCUIT_BREAKER_VOLUME_THRESHOLD),
+    enabled:
+      process.env.CIRCUIT_BREAKER_ENABLED !== 'false' && process.env.NODE_ENV !== 'development',
   },
 
   // Logging Configuration

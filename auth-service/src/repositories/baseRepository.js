@@ -53,7 +53,7 @@ class BaseRepository extends IRepository {
   }
 
   /**
-   * Tìm record theo ID
+   * Tìm record theo ID (internal)
    */
   async findById(id) {
     const results = await this.getSlaveDb().select('*').where('id', id).limit(1);
@@ -111,7 +111,7 @@ class BaseRepository extends IRepository {
   }
 
   /**
-   * Tìm record theo public_id
+   * Tìm record theo public_id (external)
    */
   async findByPublicId(publicId) {
     const results = await this.getSlaveDb().select('*').where('public_id', publicId).limit(1);
